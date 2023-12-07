@@ -32,10 +32,14 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, epochs=1
 def h(x):
     return torch.sum(x**2, dim=1)
 
+# define  the score function
+def score_function(x):
+      return x ** 2 + 2 * x + 1
+
 # Evaluate for different distributions and conditions
-evaluate_stein_expectation(NormalDistribution(mean=10.0, std=3.0), 1, (5, 15), 100)
-evaluate_stein_expectation(ExponentialDistribution(rate=1.0), 1, (1, 3), 100)
-evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0], [0.0, 1.0]])), 2, (-1, 1), 100)
-evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0],[0.0, 0.0, 1.0]])), 3, (-1, 1), 100)
-evaluate_stein_expectation(StudentsTDistribution(nu=3.0), 1, (-10, 10), 300)
-evaluate_stein_expectation(CustomDistribution(parameters=None), 1, (0, 10), 300)
+#evaluate_stein_expectation(NormalDistribution(mean=10.0, std=3.0), 1, (5, 15), 100)
+#evaluate_stein_expectation(ExponentialDistribution(rate=1.0), 1, (1, 3), 100)
+#evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0], [0.0, 1.0]])), 2, (-1, 1), 100)
+#evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0],[0.0, 0.0, 1.0]])), 3, (-1, 1), 100)
+#evaluate_stein_expectation(StudentsTDistribution(nu=3.0), 1, (-10, 10), 300)
+evaluate_stein_expectation(CustomDistribution(score_function=score_function), 1, (0, 10), 300)

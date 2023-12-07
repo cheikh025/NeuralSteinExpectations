@@ -47,12 +47,13 @@ class StudentsTDistribution(Distribution):
     
 
 class CustomDistribution(Distribution):
-    def __init__(self, parameters):
-        super().__init__(parameters)
-        self.parameters = parameters  
+    def __init__(self, score_function):
+        super().__init__(parameters=None)
+        self.parameters = None 
+        self.score_function = score_function
 
-    def score_function(self, x):
-        return x ** 2 + 2 * x + 1
+    #def score_function(self, x):
+    #    return x ** 2 + 2 * x + 1
 
     def log_prob(self, x):
         return torch.log(self.score_function(x))
