@@ -37,6 +37,24 @@ class NormalDistributionKD(Distribution):
         d = x - self.mean
         return -0.5 * torch.sum((d @ self.inv_covariance) * d, dim=1) - torch.log(self.normalization_factor)
     
+
+class StudentsTDistribution(Distribution):
+    def __init__(self, nu):
+        self.nu = nu  # Degrees of freedom
+
+    def log_prob(self, x):
+        return -0.5 * (self.nu + 1) * torch.log(1 + x**2 / self.nu)
     
+
+class CustomDistribution(Distribution):
+    def __init__(self, parameters):
+        super().__init__(parameters)
+        self.parameters = parameters  
+
+    def score_function(self, x):
+        return x ** 2 + 2 * x + 1
+
+    def log_prob(self, x):
+        return torch.log(self.score_function(x))
 
     

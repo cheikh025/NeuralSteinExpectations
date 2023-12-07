@@ -1,8 +1,9 @@
-from distributions import NormalDistribution, ExponentialDistribution, NormalDistributionKD
+from distributions import NormalDistribution, ExponentialDistribution, NormalDistributionKD, StudentsTDistribution, CustomDistribution
 from network import MLP
 from utils import stein_g, train_network
 import torch.optim as optim
 import torch
+from torch.distributions import StudentT
 
 def generate_shuffled_samples(dim, sample_range, n_samples):
     samples = []
@@ -36,4 +37,5 @@ evaluate_stein_expectation(NormalDistribution(mean=10.0, std=3.0), 1, (5, 15), 1
 evaluate_stein_expectation(ExponentialDistribution(rate=1.0), 1, (1, 3), 100)
 evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0], [0.0, 1.0]])), 2, (-1, 1), 100)
 evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0],[0.0, 0.0, 1.0]])), 3, (-1, 1), 100)
-
+evaluate_stein_expectation(StudentsTDistribution(nu=3.0), 1, (-10, 10), 300)
+evaluate_stein_expectation(CustomDistribution(parameters=None), 1, (0, 10), 300)

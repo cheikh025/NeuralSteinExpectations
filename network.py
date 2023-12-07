@@ -20,24 +20,3 @@ class MLP(nn.Module):
         out = self.net(x)
         return out.squeeze()
     
-def train_network(net, optimizer, sample, normal_dist, h, epochs):
-    for e in range(epochs):
-        optimizer.zero_grad()
-
-        # Calculate Stein value
-        stein_val = stein_g(sample, net, normal_dist.log_prob)
-
-        # Compute gradients
-        grad_s = get_grad(stein_val.sum(), sample)
-        grad_h = get_grad(h(sample).sum(), sample)
-
-        # Calculate loss as the squared difference of gradients
-        loss = torch.sum((grad_s - grad_h)**2)
-        loss.backward()
-
-        # Update network parameters
-        optimizer.step()
-
-        if e % 100 == 0:  # Print every 100 epochs
-            print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
-    return net
