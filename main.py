@@ -4,6 +4,7 @@ from utils import stein_g, train_network
 import torch.optim as optim
 import torch
 from torch.distributions import StudentT
+from OtherMethods import LangevinMCMC, HamiltonianMCMC 
 
 def generate_shuffled_samples(dim, sample_range, n_samples):
     samples = []
@@ -36,10 +37,34 @@ def h(x):
 def score_function(x):
       return x ** 2 + 2 * x + 1
 
+def test_other_methods():
+    ### Test examples for the other methods ###
+    # Parameters
+    dim = 1
+    mean = 10 * torch.ones(dim)
+    cov = 3 * torch.eye(dim)
+    target_dist = {'name': 'gaussian', 'mean': mean, 'cov': cov}
+    target_function = lambda x: torch.sum(x ** 2)
+    num_samples = 100
+    step_size = None
+    target_accept = 0.9
+
+    # Run the MCMC methods
+    langevin = LangevinMCMC(target_dist, target_function, dim, step_size)
+    l_expectation, L_time = langevin.compute_expectation(num_samples)
+    hamiltonian = HamiltonianMCMC(target_dist, target_function, dim, target_accept)
+    h_expectation, H_time = hamiltonian.compute_expectation(num_samples)
+    print("Estimated expectation with Langevin method:", l_expectation)
+    print("Time taken for Langevin method:", L_time)
+    print("Estimated expectation with Hamiltonian method:", h_expectation)
+    print("Time taken for Hamiltonian method:", H_time)
+
+
 # Evaluate for different distributions and conditions
 #evaluate_stein_expectation(NormalDistribution(mean=10.0, std=3.0), 1, (5, 15), 100)
 #evaluate_stein_expectation(ExponentialDistribution(rate=1.0), 1, (1, 3), 100)
 #evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0], [0.0, 1.0]])), 2, (-1, 1), 100)
 #evaluate_stein_expectation(NormalDistributionKD(mean=torch.tensor([0.0, 0.0, 0.0]), covariance=torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0],[0.0, 0.0, 1.0]])), 3, (-1, 1), 100)
 #evaluate_stein_expectation(StudentsTDistribution(nu=3.0), 1, (-10, 10), 300)
-evaluate_stein_expectation(CustomDistribution(score_function=score_function), 1, (0, 10), 300)
+#evaluate_stein_expectation(CustomDistribution(score_function=score_function), 1, (0, 10), 300)
+test_other_methods()
