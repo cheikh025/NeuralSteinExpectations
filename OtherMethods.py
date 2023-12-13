@@ -3,12 +3,14 @@ import pymc3 as pm
 import time
 
 class LangevinMCMC:
-    def __init__(self, target_dist, target_function, dim, step_size):
+    def __init__(self, target_dist, target_function, dim, step_size,
+                 num_chains=10):
         self.target_dist = target_dist
         self.h = target_function # h
         self.dim = dim
         self.step_size = step_size 
         self.model = pm.Model()
+        self.chains = num_chains
 
     def get_distribution(self, target_dist, dim):
         with self.model:
@@ -30,7 +32,7 @@ class LangevinMCMC:
             # Langevin MCMC sampling
             if self.step_size is None:
                  self.step_size = pm.Metropolis() 
-            trace_metropolis = pm.sample(num_samples, step=self.step_size, cores=1)
+            trace_metropolis = pm.sample(num_samples, step=self.step_size, cores=1, chains=self.chains)
             expectation = torch.mean(torch.tensor([self.h(torch.from_numpy(trace_metropolis.get_values('x')[i]))
                                     for i in range(len(trace_metropolis))]))
             self.time = time.time() - self.time
@@ -40,12 +42,14 @@ class LangevinMCMC:
 
 
 class HamiltonianMCMC:
-    def __init__(self, target_dist, target_function, dim, target_accept):
+    def __init__(self, target_dist, target_function, dim, target_accept,
+                 num_chains=10):
         self.target_dist = target_dist
         self.dim = dim
         self.target_accept = target_accept 
         self.h = target_function
         self.model = pm.Model()
+        self.chains = num_chains
 
     def get_distribution(self, target_dist, dim):
         with self.model:
@@ -65,7 +69,7 @@ class HamiltonianMCMC:
             x = self.get_distribution(self.target_dist, self.dim)
             self.time = time.time()
             # Hamiltonian MCMC sampling
-            trace_hmc = pm.sample(num_samples, target_accept=self.target_accept, cores=1)  # The NUTS sampler is used by default
+            trace_hmc = pm.sample(num_samples, target_accept=self.target_accept, cores=1, chains=self.chains)  # The NUTS sampler is used by default
             expectation = torch.mean(torch.tensor([self.h(torch.from_numpy(trace_hmc.get_values('x')[i])) 
                                     for i in range(len(trace_hmc))]))
             self.time = time.time() - self.time
