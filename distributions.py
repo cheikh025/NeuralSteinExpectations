@@ -1,5 +1,8 @@
 import torch
-from metalogistic import MetaLogistic
+import scipy.special as sc
+import sympy as sp
+import math as m
+
 class Distribution:
     def __init__(self, parameters):
         self.parameters = parameters
@@ -15,6 +18,12 @@ class NormalDistribution(Distribution):
 
     def log_prob(self, x):
         return -(x - self.mean) ** 2 / (2 * self.std ** 2)
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        return self.mean ** 2 + self.std ** 2
 
 class ExponentialDistribution(Distribution):
     def __init__(self, rate):
@@ -22,6 +31,14 @@ class ExponentialDistribution(Distribution):
 
     def log_prob(self, x):
         return - self.rate * x
+    
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        if sample_range[0] < 0:
+            sample_range = (0, sample_range[1])
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        return 2 / self.rate ** 2
 
 
 class StudentsTDistribution(Distribution):
@@ -31,6 +48,14 @@ class StudentsTDistribution(Distribution):
     def log_prob(self, x):
         return -0.5 * (self.nu + 1) * torch.log(1 + x**2 / self.nu)
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        if self.nu > 2:
+            return self.nu / (self.nu - 2)
+        return None
+    
 
 class CustomDistribution(Distribution):
     def __init__(self, score_function):
@@ -39,6 +64,12 @@ class CustomDistribution(Distribution):
 
     def log_prob(self, x):
         return torch.log(self.score_function(x))
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        return None
 
 
 class LogisticDistribution(Distribution):
@@ -50,6 +81,12 @@ class LogisticDistribution(Distribution):
         z = (x - self.mu) / self.s
         return -(z  + 2 * torch.log(1 + torch.exp(-z)))
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        return (self.s * m.pi) ** 2 / 3 + self.mu ** 2
+    
     
 class KumaraswamyDistribution(Distribution):
     def __init__(self, a, b):
@@ -59,21 +96,47 @@ class KumaraswamyDistribution(Distribution):
     def log_prob(self, x):
         return (self.a - 1) * torch.log(x) + (self.b - 1) * torch.log(1 - x ** self.a)
     
+    def generate_points(self, n_samples, sample_range=(0, 1)):
+        if sample_range[0] < 0 or sample_range[1] > 1 or sample_range[0] > 1:
+            sample_range = (0, 1)
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        return self.b*sc.beta(1 + 2/self.a, self.b)  - (self.b*sc.beta(1 + 1/self.a, self.b))**2 
+
+    
 class GammaDistribution(Distribution):
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
+    def __init__(self, alpha, beta):
+        self.alpha = alpha
+        self.beta = beta
 
     def log_prob(self, x):
-        return (self.a - 1) * torch.log(x) - x / self.b 
+        return (self.alpha - 1) * torch.log(x) - self.beta * x
+    
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        if self.alpha < 1:
+            return self.alpha / self.beta ** 2 
+        return self.alpha / self.beta ** 2 - ((self.alpha - 1) / self.beta) ** 2
+
     
 class BetaDistribution(Distribution):
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
+    def __init__(self, alpha, beta):
+        self.alpha = alpha
+        self.beta = beta
 
     def log_prob(self, x):
-        return (self.a - 1) * torch.log(x) + (self.b - 1) * torch.log(1 - x)
+        return (self.alpha - 1) * torch.log(x) + (self.beta - 1) * torch.log(1 - x)
+    
+    def generate_points(self, n_samples, sample_range=(0, 1)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        mean = self.alpha / (self.alpha + self.beta)
+        var = self.alpha * self.beta / ((self.alpha + self.beta) ** 2 * (self.alpha + self.beta + 1))
+        return mean ** 2 + var
     
 class LevyDistribution(Distribution):
     def __init__(self, mu, c):
@@ -83,6 +146,12 @@ class LevyDistribution(Distribution):
     def log_prob(self, x):
         return -self.c / (2 * (x - self.mu)) -1.5 * torch.log(x - self.mu)
     
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        #check the range to ensure that the distribution is defined the first range msut be greater than self.mu
+        if sample_range[0] < self.mu:
+            sample_range = (self.mu, sample_range[1])
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
     
 class LaplaceDistribution(Distribution):
     def __init__(self, mu, b):
@@ -91,12 +160,29 @@ class LaplaceDistribution(Distribution):
     def log_prob(self, x):
         return -torch.abs(x - self.mu) / self.b
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        return 2 * self.b ** 2 + self.mu ** 2
+    
 class ParetoDistribution(Distribution):
-    def __init__(self, xm, alpha):
+    def __init__(self, alpha, xm):
         self.xm = xm  
         self.alpha = alpha
     def log_prob(self, x):
         return - (self.alpha + 1) * torch.log(x)
+    
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        if sample_range[0] < self.xm:
+            sample_range = (self.xm, sample_range[1])
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        if self.alpha > 2:
+            mean = self.alpha * self.xm / (self.alpha - 1)
+            return self.xm ** 2 * self.alpha / (self.alpha - 1) ** 2 / (self.alpha - 2) + mean ** 2
+        return None
     
 class WeibullDistribution(Distribution):
     def __init__(self, k, l):
@@ -105,6 +191,16 @@ class WeibullDistribution(Distribution):
     def log_prob(self, x):
         return (self.k - 1) * torch.log(x) - (x / self.l) ** self.k
     
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        if sample_range[0] < 0:
+            sample_range = (0, sample_range[1])
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        mean = self.l * sc.gamma(1 + 1 / self.k)
+        var = self.l ** 2 * (sc.gamma(1 + 2 / self.k) - sc.gamma(1 + 1 / self.k) ** 2)
+        return mean ** 2 + var
+    
 class GumbelDistribution(Distribution):
     def __init__(self, mu, b):
         self.mu = mu  
@@ -112,6 +208,13 @@ class GumbelDistribution(Distribution):
     def log_prob(self, x):
         return -(x - self.mu) / self.b - torch.exp(-(x - self.mu) / self.b)
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+    def second_moment(self):
+        mean = self.mu + self.b * sp.EulerGamma.evalf()
+        var = self.b ** 2 * (m.pi ** 2 / 6)
+        return mean ** 2 + var
 
 
 
@@ -122,17 +225,26 @@ class MultivariateNormalDistribution(Distribution):
         self.covariance = covariance
         self.inv_covariance = torch.inverse(covariance)
         self.det_covariance = torch.det(covariance)
-        k = mean.size(0)  
+        self.dim = mean.size(0)  
 
     def log_prob(self, x):
         d = x - self.mean
         return -0.5 * torch.sum((d @ self.inv_covariance) * d, dim=1) 
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+   
+         return torch.rand(n_samples, self.dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
+
     
 class DirichletDistribution(Distribution):
     def __init__(self, alpha):
         self.alpha = alpha  
     def log_prob(self, x):
         return torch.sum((self.alpha - 1) * torch.log(x), dim=1)
+    
+    def generate_points(self, n_samples, sample_range=(0, 1)):
+        random_point = torch.rand(n_samples, self.alpha.size(0))
+        return random_point / torch.sum(random_point, dim=1, keepdim=True)
     
 class BinghamDistribution(Distribution):
     def __init__(self, C, Z):
@@ -143,6 +255,9 @@ class BinghamDistribution(Distribution):
         x_trans = torch.matmul(x, self.C)
         log_prob_unnorm = torch.matmul(x_trans * self.Z, x_trans.t())
         return torch.diag(log_prob_unnorm)
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples, self.C.size(0)) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
 class MultivariateTDistribution(Distribution):
     def __init__(self, mu, Sigma, nu):
@@ -156,6 +271,9 @@ class MultivariateTDistribution(Distribution):
         diff = x - self.mu
         return -0.5 * (self.nu + self.p) * torch.log(1 + (1 / self.nu) * torch.sum((diff @ self.inv_Sigma) * diff, dim=1) )
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples, self.p) * (sample_range[1] - sample_range[0]) + sample_range[0]
+
 class WishartDistribution(Distribution):
     def __init__(self, V, n):
         self.V = V  # Scale matrix
@@ -167,6 +285,9 @@ class WishartDistribution(Distribution):
         trace_term = -0.5*torch.trace(torch.matmul(self.inv_V, X))
         log_det_term = 0.5*(self.n - self.p - 1) * torch.logdet(X)
         return trace_term + log_det_term
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples, self.p, self.p) * (sample_range[1] - sample_range[0]) + sample_range[0]
 
 class MultinomialDistribution(Distribution):
     def __init__(self, n, p):
@@ -175,6 +296,10 @@ class MultinomialDistribution(Distribution):
 
     def log_prob(self, x):
         return torch.sum(x * torch.log(self.p), dim=1)
+    
+    def generate_points(self, n_samples, sample_range=(0, 1)):
+        random_point = torch.rand(n_samples, self.p.size(0))
+        return random_point / torch.sum(random_point, dim=1, keepdim=True)*self.n
     
 class VonMisesFisherDistribution(Distribution):
     def __init__(self, mu, kappa):
@@ -186,6 +311,11 @@ class VonMisesFisherDistribution(Distribution):
         dot_product = torch.matmul(mu, x.T).squeeze()
         return self.kappa * dot_product
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        x = torch.randn(n_samples, self.mu.size(0))
+        x /= torch.norm(x, dim=1, keepdim=True)
+        return x
+    
 class MultivariateExponentialDistribution(Distribution):
     def __init__(self, rates):
         self.rates = rates
@@ -193,13 +323,8 @@ class MultivariateExponentialDistribution(Distribution):
     def log_prob(self, x):
         return -torch.sum(self.rates * x, dim=-1)
     
-class MultivariateLaplaceDistribution(Distribution):
-    def __init__(self, mu, b):
-        self.mu = mu
-        self.b = b
-        
-    def log_prob(self, x):
-        return -torch.sum(torch.abs(x - self.mu)/self.b, dim=-1) 
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        return torch.rand(n_samples, self.rates.size(0)) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
 
 class GaussianBernoulliRBMDistribution(Distribution):
@@ -220,6 +345,9 @@ class GaussianBernoulliRBMDistribution(Distribution):
 
         return xBh + bx + ch + norm_x
     
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples, self.B.size(0)) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
 class MultivariateGammaDistribution(Distribution):
     def __init__(self, a, b):
         self.a = a
@@ -230,6 +358,9 @@ class MultivariateGammaDistribution(Distribution):
         term1 = (self.a - 1) * torch.log(x)
         term2 = -self.b * x
         return torch.sum(term1 + term2, dim=1)
+    
+    def generate_points(self, n_samples, sample_range=(0, 5)):
+        return torch.rand(n_samples, self.a.size(0)) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
 class GaussianMixtureDistribution(Distribution):
     def __init__(self, means, covariances, weights):
@@ -258,3 +389,6 @@ class GaussianMixtureDistribution(Distribution):
             log_probs[k] = log_prob_k
 
         return torch.logsumexp(log_probs, dim=0)
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+        return torch.rand(n_samples, self.means.size(1)) * (sample_range[1] - sample_range[0]) + sample_range[0]
