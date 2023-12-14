@@ -24,6 +24,7 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, epochs=1
 
     # Generate and prepare sample data
     sample = dist.generate_points(n_samples, sample_range)
+    print(sample.shape)
     sample.requires_grad = True
 
     # Train the network and estimate the moment
@@ -186,8 +187,8 @@ def create_and_evaluate(distribution_class, dim):
      #best_range = find_best_range(dist_instance, 1)
      Estimated = evaluate_stein_expectation(dist_instance, dim,(-2,2), 300)
      print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
-     true_estimated = expectation_sum_of_squares(dist_instance.mean, dist_instance.covariance)
-     print(f"True moment for {dist_instance.__class__.__name__}: {true_estimated}")
+     #true_estimated = expectation_sum_of_squares(dist_instance.mean, dist_instance.covariance)
+     #print(f"True moment for {dist_instance.__class__.__name__}: {true_estimated}")
      return Estimated
 
 
