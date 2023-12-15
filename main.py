@@ -1,6 +1,6 @@
 from distributions import *
 from network import MLP
-from utils import stein_g, train_network
+from utils import *
 from ToyDistributions import *
 import torch.optim as optim
 import torch
@@ -80,106 +80,6 @@ def find_best_range(dist, dim, min_start=-30, max_end=30, num_iterations=200):
     print(f"Best range: {best_range}, best performance: {best_performance}")
     return best_range
 
-def generate_parameter_variations():
-    parameter_variations= {
-        NormalDistribution: [
-            {'mean': 0, 'std': 1},
-            {'mean': 5, 'std': 2},
-            {'mean': 10, 'std': 3},
-        ],
-        ExponentialDistribution: [
-            {'rate': 0.5},
-            {'rate': 1.0},
-            {'rate': 2.5},
-        ],
-        StudentsTDistribution: [
-            {'nu': 2.5},
-            {'nu': 5.0},
-            {'nu': 10.0},
-        ],
-        LogisticDistribution: [
-            {'mu': 0, 's': 1},
-            {'mu': 5, 's': 2},
-            {'mu': 10, 's': 3},
-        ],
-        KumaraswamyDistribution: [
-            {'a': 0.5, 'b': 0.5},
-            {'a': 1.0, 'b': 1.0},
-            {'a': 2.0, 'b': 2.0},
-        ],
-        GammaDistribution: [
-            {'alpha': 1.0, 'beta': 0.5},
-            {'alpha': 2.0, 'beta': 1.0},
-            {'alpha': 3.0, 'beta': 1.5},
-        ],
-        LaplaceDistribution: [
-            {'mu': 0, 'b': 1},
-            {'mu': 5, 'b': 2},
-            {'mu': 10, 'b': 3},
-        ],
-        BetaDistribution: [
-            {'alpha': 0.5, 'beta': 0.5},
-            {'alpha': 1.0, 'beta': 1.0},
-            {'alpha': 2.0, 'beta': 2.0},
-        ],
-        ParetoDistribution: [
-            {'alpha': 2.5, 'xm': 0.5},
-            {'alpha': 10.0, 'xm': 1.0},
-            {'alpha': 21.0, 'xm': 2.0},
-        ],
-        WeibullDistribution: [
-            {'k': 0.5, 'l': 0.5},
-            {'k': 1.0, 'l': 1.0},
-            {'k': 2., 'l': 2.0},
-        ],
-        GumbelDistribution: [
-            {'mu': 0, 'b': 1},
-            {'mu': 5, 'b': 2},
-            {'mu': 10, 'b': 3},
-        ],
-    }
-    return parameter_variations
-
-
-
-def generate_distribution_params(distribution_type, dim):
-    if distribution_type == "DirichletDistribution":
-        # alpha should be a positive vector
-        alpha = torch.rand(dim) + 0.01  # Adding 0.1 to ensure positivity
-        return {'alpha': alpha}
-
-    elif distribution_type == "MultivariateTDistribution":
-        # Generate mean (mu) and covariance
-        mu = torch.rand(dim)
-        A = torch.rand(dim, dim)
-        covariance = torch.mm(A, A.t())
-        nu = torch.randint(1, 10, (1,)).item()  # A random integer
-        return {'mu': mu, 'Sigma': covariance, 'nu': nu}
-
-    elif distribution_type == "MultinomialDistribution":
-        # 'n' is a scalar, 'p' is a probability vector that sums to 1
-        n = torch.randint(1, 10, (1,)).item()  # A random integer
-        p = torch.rand(dim)
-        p = p / p.sum()  # Normalize to sum to 1
-        return {'n': n, 'p': p}
-
-    elif distribution_type == "VonMisesFisherDistribution":
-        # 'mu' is a unit vector, 'kappa' is a concentration parameter
-        mu = torch.rand(dim)
-        mu = mu / torch.norm(mu)  # Normalize to unit length
-        kappa = torch.rand(1).item()
-        return {'mu': mu, 'kappa': kappa}
-
-    elif distribution_type == "MultivariateNormalDistribution":
-        # Generate mean (mu) and covariance
-        mu = torch.rand(dim)
-        A = torch.rand(dim, dim)
-        covariance = torch.mm(A, A.t())
-        return {'mean': mu, 'covariance': covariance}
-
-    else:
-        raise ValueError("Unsupported distribution type")
-
 def create_and_evaluate(distribution_class, dim):
      params = generate_distribution_params(distribution_class.__name__, dim)
      dist_instance = distribution_class(**params)
@@ -209,14 +109,13 @@ def evaluate_all_multivariate_distributions(dim):
         Estimated = create_and_evaluate(dist_class, dim)
         all_evaluations.append((dist_class.__name__, dim, Estimated))
     return all_evaluations
-#parameter_variations= [
-#            {'mean': 0, 'std': 1},
-#            {'mean': 5, 'std': 2},
-#            {'mean': 10, 'std': 3},]
-#for parameter in parameter_variations:
-#    dist_instance = NormalDistribution(**parameter)
-#                #best_range = find_best_range(dist_instance, 1)
-#    Estimated = evaluate_stein_expectation(dist_instance, 1, (-100,100), 1000)
-#    print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
-#    print(dist_instance.second_moment())
-
+parameter_variations= [
+            {'mean': 0, 'std': 1},
+            {'mean': 5, 'std': 2},
+            {'mean': 10, 'std': 3},]
+for parameter in parameter_variations:
+    dist_instance = NormalDistribution(**parameter)
+                #best_range = find_best_range(dist_instance, 1)
+    Estimated = evaluate_stein_expectation(dist_instance, 1, (-100,100), 1000)
+    print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
+    print(dist_instance.second_moment())

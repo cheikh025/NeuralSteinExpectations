@@ -20,7 +20,7 @@ class NormalDistribution(Distribution):
         return -(x - self.mean) ** 2 / (2 * self.std ** 2)
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         return self.mean ** 2 + self.std ** 2
@@ -35,7 +35,7 @@ class ExponentialDistribution(Distribution):
     def generate_points(self, n_samples, sample_range=(0, 5)):
         if sample_range[0] < 0:
             sample_range = (0, sample_range[1])
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         return 2 / self.rate ** 2
@@ -49,7 +49,7 @@ class StudentsTDistribution(Distribution):
         return -0.5 * (self.nu + 1) * torch.log(1 + x**2 / self.nu)
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         if self.nu > 2:
@@ -68,7 +68,7 @@ class LogisticDistribution(Distribution):
         return -(z  + 2 * torch.log(1 + torch.exp(-z)))
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         return (self.s * m.pi) ** 2 / 3 + self.mu ** 2
@@ -85,7 +85,7 @@ class KumaraswamyDistribution(Distribution):
     def generate_points(self, n_samples, sample_range=(0, 1)):
         if sample_range[0] < 0 or sample_range[1] > 1 or sample_range[0] > 1:
             sample_range = (0, 1)
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         return self.b*sc.beta(1 + 2/self.a, self.b)  - (self.b*sc.beta(1 + 1/self.a, self.b))**2 
@@ -100,7 +100,7 @@ class GammaDistribution(Distribution):
         return (self.alpha - 1) * torch.log(x) - self.beta * x
     
     def generate_points(self, n_samples, sample_range=(0, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         if self.alpha < 1:
@@ -117,7 +117,7 @@ class BetaDistribution(Distribution):
         return (self.alpha - 1) * torch.log(x) + (self.beta - 1) * torch.log(1 - x)
     
     def generate_points(self, n_samples, sample_range=(0, 1)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         mean = self.alpha / (self.alpha + self.beta)
@@ -136,7 +136,7 @@ class LevyDistribution(Distribution):
         #check the range to ensure that the distribution is defined the first range msut be greater than self.mu
         if sample_range[0] < self.mu:
             sample_range = (self.mu, sample_range[1])
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     
 class LaplaceDistribution(Distribution):
@@ -147,7 +147,7 @@ class LaplaceDistribution(Distribution):
         return -torch.abs(x - self.mu) / self.b
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         return 2 * self.b ** 2 + self.mu ** 2
@@ -162,7 +162,7 @@ class ParetoDistribution(Distribution):
     def generate_points(self, n_samples, sample_range=(0, 5)):
         if sample_range[0] < self.xm:
             sample_range = (self.xm, sample_range[1])
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         if self.alpha > 2:
@@ -180,7 +180,7 @@ class WeibullDistribution(Distribution):
     def generate_points(self, n_samples, sample_range=(0, 5)):
         if sample_range[0] < 0:
             sample_range = (0, sample_range[1])
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         mean = self.l * sc.gamma(1 + 1 / self.k)
@@ -195,7 +195,7 @@ class GumbelDistribution(Distribution):
         return -(x - self.mu) / self.b - torch.exp(-(x - self.mu) / self.b)
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        return torch.rand(n_samples, 1) * (sample_range[1] - sample_range[0]) + sample_range[0]
     
     def second_moment(self):
         mean = self.mu + self.b * sp.EulerGamma.evalf()
