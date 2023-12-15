@@ -1,80 +1,52 @@
 import torch
-import pymc3 as pm
+import hamiltorch
 import time
-
-class LangevinMCMC:
-    def __init__(self, target_dist, target_function, dim, step_size,
-                 num_chains=10):
-        self.target_dist = target_dist
-        self.h = target_function # h
-        self.dim = dim
-        self.step_size = step_size 
-        self.model = pm.Model()
-        self.chains = num_chains
-
-    def get_distribution(self, target_dist, dim):
-        with self.model:
-            if target_dist['name'] == 'gaussian':
-                x = pm.MvNormal('x', mu=target_dist['mean'], 
-                                cov=target_dist['cov'], shape=dim)
-            elif target_dist['name'] == 'student':
-                x = pm.StudentT('x', nu=target_dist['nu'], shape=dim)
-            elif target_dist['name'] == 'exponential':
-                x = pm.Exponential('x', lam=target_dist['rate'], shape=dim)
-            return x
-        
-
-    def compute_expectation(self, num_samples):
-        with self.model:
-            # Define the Gaussian distribution
-            x = self.get_distribution(self.target_dist, self.dim)
-            self.time = time.time()
-            # Langevin MCMC sampling
-            if self.step_size is None:
-                 self.step_size = pm.Metropolis() 
-            trace_metropolis = pm.sample(num_samples, step=self.step_size, cores=1, chains=self.chains)
-            expectation = torch.mean(torch.tensor([self.h(torch.from_numpy(trace_metropolis.get_values('x')[i]))
-                                    for i in range(len(trace_metropolis))]))
-            self.time = time.time() - self.time
-        return expectation.item(), self.time
-
-
 
 
 class HamiltonianMCMC:
-    def __init__(self, target_dist, target_function, dim, target_accept,
+    def __init__(self, log_prob, target_function, dim, step_size,
+                 sampler='hmc',
                  num_chains=10):
-        self.target_dist = target_dist
-        self.dim = dim
-        self.target_accept = target_accept 
-        self.h = target_function
-        self.model = pm.Model()
+        self.sampler = sampler
+        self.log_prob = lambda v: log_prob(v.unsqueeze(0)) # log probability function
+        self.h = target_function  # h
+        self.step_size = step_size 
         self.chains = num_chains
+        self.params_init = torch.zeros(dim)
 
-    def get_distribution(self, target_dist, dim):
-        with self.model:
-            if target_dist['name'] == 'gaussian':
-                x = pm.MvNormal('x', mu=target_dist['mean'], 
-                                cov=target_dist['cov'], shape=dim)
-            elif target_dist['name'] == 'student':
-                x = pm.StudentT('x', nu=target_dist['nu'], shape=dim)
-            elif target_dist['name'] == 'exponential':
-                x = pm.Exponential('x', lam=target_dist['rate'], shape=dim)
-            return x
+    def sample(self, num_samples, burn=1000):
+        if self.sampler == 'hmc':
+            params_hmc = hamiltorch.sample(log_prob_func=self.log_prob, 
+                                params_init=self.params_init, 
+                                num_samples=num_samples,
+                                step_size=self.step_size,
+                                burn=burn, 
+                                num_steps_per_sample=self.chains)
+        elif self.sampler == 'nuts':
+            params_hmc = hamiltorch.sample(log_prob_func=self.log_prob, 
+                                params_init=self.params_init,
+                                num_samples=num_samples,
+                                step_size=self.step_size,
+                                num_steps_per_sample=self.chains,
+                                sampler=hamiltorch.Sampler.HMC_NUTS, burn=burn,
+                                desired_accept_rate=0.8)
+        elif self.sampler == 'rmhmc':
+            params_hmc = hamiltorch.sample(log_prob_func=self.log_prob, 
+                                params_init=self.params_init, 
+                                num_samples=num_samples,
+                                step_size=self.step_size,num_steps_per_sample=self.chains, 
+                                sampler=hamiltorch.Sampler.RMHMC,
+                                integrator=hamiltorch.Integrator.IMPLICIT, 
+                                fixed_point_max_iterations=1000,
+                                fixed_point_threshold=1e-05)
+        return params_hmc
         
-    
+
     def compute_expectation(self, num_samples):
-        with self.model:
-            # Define the Gaussian distribution
-            x = self.get_distribution(self.target_dist, self.dim)
-            self.time = time.time()
-            # Hamiltonian MCMC sampling
-            trace_hmc = pm.sample(num_samples, target_accept=self.target_accept, cores=1, chains=self.chains)  # The NUTS sampler is used by default
-            expectation = torch.mean(torch.tensor([self.h(torch.from_numpy(trace_hmc.get_values('x')[i])) 
-                                    for i in range(len(trace_hmc))]))
-            self.time = time.time() - self.time
+        # Define the Gaussian distribution
+        self.time = time.time()
+        samples = self.sample(num_samples, burn=min(num_samples/2, 1000))
+        expectation = torch.mean(torch.tensor([self.h(samples[i])
+                                for i in range(len(samples))]))
+        self.time = time.time() - self.time
         return expectation.item(), self.time
-
-
-
-

@@ -8,7 +8,7 @@ from torch.distributions import StudentT
 import random
 import math
 from bayes_opt import BayesianOptimization
-#from OtherMethods import LangevinMCMC, HamiltonianMCMC 
+from OtherMethods import HamiltonianMCMC 
 
 def generate_shuffled_samples(dim, sample_range, n_samples):
     samples = []
@@ -39,28 +39,27 @@ def h(x):
     return torch.sum(x**2, dim=1)
 
 
-#def test_other_methods():
-#    ### Test examples for the other methods ###
-#    # Parameters
-#    dim = 1
-#    mean = 10 * torch.ones(dim)
-#    cov = 3 * torch.eye(dim)
-#    target_dist = {'name': 'gaussian', 'mean': mean, 'cov': cov}
-#    target_function = lambda x: torch.sum(x ** 2)
-#    num_samples = 100
-#    step_size = None
-#    target_accept = 0.9
-#
-#    # Run the MCMC methods
-#    langevin = LangevinMCMC(target_dist, target_function, dim, step_size)
-#    lan_expectation, L_time = langevin.compute_expectation(num_samples)
-#    hamiltonian = HamiltonianMCMC(target_dist, target_function, dim, target_accept)
-#    ham_expectation, H_time = hamiltonian.compute_expectation(num_samples)
-#    print("Estimated expectation with Langevin MCMC method:", lan_expectation)
-#    print("Time taken for Langevin method:", L_time)
-#    print("Estimated expectation with Hamiltonian MCMC method:", ham_expectation)
-#    print("Time taken for Hamiltonian method:", H_time)
-
+def test_other_methods():
+    ### Test examples for the other methods ###
+    # Parameters
+    # test the methods
+    h = lambda x: torch.sum(x ** 2)
+    dim = 2
+    mean = 10 * torch.ones(dim)
+    cov = 3 * torch.eye(dim)
+    distribution = MultivariateNormalDistribution(mean=mean, covariance=cov)
+    # Run the MCMC methods
+    num_samples = 1000
+    step_size = 0.1
+    hamiltonian = HamiltonianMCMC(distribution.log_prob, h, dim, step_size, sampler='hmc')
+    ham_expectation, H_time = hamiltonian.compute_expectation(num_samples)
+    print(f'Hamiltonian expectation:  {ham_expectation}, time: {H_time}')
+    hamiltonian = HamiltonianMCMC(distribution.log_prob, h, dim, step_size, sampler='nuts')
+    ham_expectation, H_time = hamiltonian.compute_expectation(num_samples)
+    print(f'NUTS expectation:  {ham_expectation}, time: {H_time}')
+    hamiltonian = HamiltonianMCMC(distribution.log_prob, h, dim, step_size, sampler='rmhmc')
+    ham_expectation, H_time = hamiltonian.compute_expectation(num_samples)
+    print(f'RMHMC expectation:  {ham_expectation}, time: {H_time}')
 
 def create_and_evaluate(distribution_class, dim):
      params = generate_distribution_params(distribution_class.__name__, dim)
@@ -120,3 +119,5 @@ def find_best_range_bayesopt(dist, dim, min_start=1, max_end=30, num_iterations=
 
 dist = NormalDistribution(mean=0, std=1)
 print(find_best_range_bayesopt(dist, 1))
+
+test_other_methods()
