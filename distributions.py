@@ -57,20 +57,6 @@ class StudentsTDistribution(Distribution):
         return None
     
 
-class CustomDistribution(Distribution):
-    def __init__(self, score_function):
-        self.parameters = None 
-        self.score_function = score_function
-
-    def log_prob(self, x):
-        return torch.log(self.score_function(x))
-    
-    def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples) * (sample_range[1] - sample_range[0]) + sample_range[0]
-    
-    def second_moment(self):
-        return None
-
 
 class LogisticDistribution(Distribution):
     def __init__(self, mu, s):
@@ -392,3 +378,19 @@ class GaussianMixtureDistribution(Distribution):
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
         return torch.rand(n_samples, self.means.size(1)) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    
+
+class CustomDistribution(Distribution):
+    def __init__(self, score_function, dim):
+        self.parameters = None 
+        self.score_function = score_function
+        self.dim = dim
+
+    def log_prob(self, x):
+        #return torch.log(self.score_function(x))
+        return self.score_function(x)
+    
+    def generate_points(self, n_samples, sample_range=(-5, 5)):
+            return torch.rand(n_samples, self.dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
+    def second_moment(self):
+        return None

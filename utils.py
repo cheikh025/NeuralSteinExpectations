@@ -42,7 +42,7 @@ def train_network(net, optimizer, sample, normal_dist, h, epochs):
             print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
     return net
 
-def expectation_sum_of_squares(mean, covariance):
-    variances = torch.diag(covariance)  # Extract the variances (diagonal elements of the covariance matrix)
-    mean_squares = mean ** 2  # Square of the mean vector
+def expectation_sum_of_squares_normal(mean, covariance):
+    variances = torch.diag(covariance) 
+    mean_squares = mean ** 2  
     return torch.sum(variances + mean_squares).item()

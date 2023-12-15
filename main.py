@@ -1,6 +1,7 @@
 from distributions import *
 from network import MLP
-from utils import stein_g, train_network, expectation_sum_of_squares
+from utils import stein_g, train_network
+from ToyDistributions import *
 import torch.optim as optim
 import torch
 from torch.distributions import StudentT
@@ -37,9 +38,6 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, epochs=1
 def h(x):
     return torch.sum(x**2, dim=1)
 
-# define  the score function
-def score_function(x):
-      return x ** 2 + 2 * x + 1
 
 def test_other_methods():
     ### Test examples for the other methods ###
@@ -155,7 +153,8 @@ def generate_distribution_params(distribution_type, dim):
         mu = torch.rand(dim)
         A = torch.rand(dim, dim)
         covariance = torch.mm(A, A.t())
-        return {'mu': mu, 'covariance': covariance}
+        nu = torch.randint(1, 10, (1,)).item()  # A random integer
+        return {'mu': mu, 'Sigma': covariance, 'nu': nu}
 
     elif distribution_type == "MultinomialDistribution":
         # 'n' is a scalar, 'p' is a probability vector that sums to 1
@@ -203,11 +202,21 @@ def evaluate_all_univariate_distributions():
             print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
             all_evaluations.append((dist_class.__name__, params, Estimated))
     return all_evaluations
-def evaluate_all_multivariate_distributions():
+def evaluate_all_multivariate_distributions(dim):
     Distribution = [DirichletDistribution, MultivariateTDistribution, MultinomialDistribution, VonMisesFisherDistribution, MultivariateNormalDistribution]
     all_evaluations = []
     for dist_class in Distribution:
-        dim = random.randint(2, 10)
         Estimated = create_and_evaluate(dist_class, dim)
         all_evaluations.append((dist_class.__name__, dim, Estimated))
     return all_evaluations
+#parameter_variations= [
+#            {'mean': 0, 'std': 1},
+#            {'mean': 5, 'std': 2},
+#            {'mean': 10, 'std': 3},]
+#for parameter in parameter_variations:
+#    dist_instance = NormalDistribution(**parameter)
+#                #best_range = find_best_range(dist_instance, 1)
+#    Estimated = evaluate_stein_expectation(dist_instance, 1, (-100,100), 1000)
+#    print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
+#    print(dist_instance.second_moment())
+
