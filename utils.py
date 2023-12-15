@@ -27,7 +27,7 @@ def stein_g(x, g, logp):
     stein_val_batches = score_critic_dot + trace_j_critic
     return stein_val_batches
 
-def train_network(net, optimizer, sample, normal_dist, h, epochs):
+def train_network(net, optimizer, sample, normal_dist, h, epochs, verbose=True):
     for e in range(epochs):
         optimizer.zero_grad()
 
@@ -39,9 +39,9 @@ def train_network(net, optimizer, sample, normal_dist, h, epochs):
         loss = torch.sum((grad_s - grad_h)**2)
         loss.backward()
         optimizer.step()
-
-        if e % 100 == 0:  
-            print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
+        if verbose:
+            if e % 100 == 0:  
+                print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
     return net
 
 def generate_parameter_variations():
