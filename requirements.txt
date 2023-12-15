@@ -1,1 +1,2 @@
-pymc3
+git+https://github.com/AdamCobb/hamiltorch
+bayesian-optimization
