@@ -141,7 +141,7 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1):
     init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
 
     lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
-                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 1e-1, num_L_steps=10)
+                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 5e-2, num_L_steps=5)
 
     # shape of samples: (num_samples, num_chains, dim), np array
     samples = lsampler.sample(sampler_type="hmc")
@@ -149,7 +149,7 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1):
     print("Expectation from all chains: ", (h(samples)).mean())
 
 
-dist = NormalDistribution(mean=2, std=4)
+dist = NormalDistribution(mean=5, std=4)
 
 #print(find_best_range_bayesopt(dist, 1))
 

@@ -82,11 +82,11 @@ class LangevinSampler:
 
         log_prob_proposal = self.log_prob(proposal)
         
-        grad_proposal = grad(log_prob_proposal.sum(), proposal)[0]
+        grad_proposal = torch.autograd.grad(log_prob_proposal.sum(), proposal)[0]
         log_accept = log_prob_proposal - log_prob - 0.5 * ((proposal - self.x - 0.5 * lr * grad_res)**2).sum() + 0.5 * ((self.x - proposal - 0.5 * lr * grad_proposal)**2).sum()
 
         # Accept or reject proposal
-        if log(torch.rand(1)) < log_accept:
+        if torch.log(torch.rand(1)) < log_accept:
             self.x = proposal
             # return the samples shape: (num_samples, num_chains, dim)
     
@@ -113,22 +113,19 @@ class LangevinSampler:
         for _ in range(self.num_L_steps):
             log_prob_val = self.log_prob(x_cur)
             grad_res = torch.autograd.grad(log_prob_val.sum(), x_cur)[0]
-            p = p - 0.5 * lr * grad_res  # half step update for momentum
+            p = p + 0.5 * lr * grad_res  # half step update for momentum
             x_next = x_cur + lr * p  # full step update for position
             log_prob_val = self.log_prob(x_next)
             grad_res = torch.autograd.grad(log_prob_val.sum(), x_next)[0]
-            p = p - 0.5 * lr * grad_res  # half step update for momentum
+            p = p + 0.5 * lr * grad_res  # half step update for momentum
             x_cur = x_next
 
         # Compute proposed Hamiltonian
         kinetic_energy = 0.5 * p.pow(2).sum(dim=-1)
         proposed_hamiltonian = -log_prob_val.reshape(self.num_chains) + kinetic_energy.reshape(self.num_chains)
-
-        #print("proposed ham: {}, ham: {}".format(proposed_hamiltonian, hamiltonian))
-
+        
         # Metropolis-Hastings acceptance step
-        #print("shape of hamiltonian: ", hamiltonian.shape)
-        accept_bools = torch.log(torch.rand_like(hamiltonian)) < proposed_hamiltonian - hamiltonian
+        accept_bools = torch.log(torch.rand_like(hamiltonian)) < hamiltonian - proposed_hamiltonian
         if torch.any(accept_bools):
             #print("accept")
             self.x = self.x.detach()
