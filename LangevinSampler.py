@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # a version of Unadjusted Langevin Algorithm
 class LangevinSampler:
     # init samples should be of shape: (num_chains, dim)
-    def __init__(self, log_prob, num_chains, num_samples, burn_in, init_samples, alpha=0.5, beta=0, gamma=0.55, device='cpu'):
+    def __init__(self, log_prob, num_chains, num_samples, burn_in, init_samples, alpha=0.5, beta=0, gamma=0.55, num_L_steps= 10,device='cpu'):
         self.device = device
         self.log_prob = log_prob
 
@@ -29,6 +29,9 @@ class LangevinSampler:
         self.num_samples = num_samples
         self.burn_in = burn_in
         self.sample_list = []
+
+        #for HMC only 
+        self.num_L_steps = num_L_steps
 
     def gaussian_noise(self, lr):
         noise_sampling = tdist.MultivariateNormal(self._mean, 
@@ -61,15 +64,88 @@ class LangevinSampler:
 
         self.x = self.x + (0.5 * lr) * grad_res + noise
 
+    # not carefully tested
+    def mala_step(self):
+        self.x = self.x.to(self.device)
+        self.x = self.x.detach().requires_grad_(True)
+
+        lr = next(self.learning_rate)
+
+        noise = self.gaussian_noise(lr)
+
+        log_prob = self.log_prob(self.x)
         
-    # return the samples shape: (num_samples, num_chains, dim)
-    def sample(self):
+        grad_res = torch.autograd.grad(log_prob.sum(), self.x)[0]
+
+        proposal = self.x + (0.5 * lr) * grad_res + noise
+
+        log_prob_proposal = self.log_prob(proposal)
+        
+        grad_proposal = grad(log_prob_proposal.sum(), proposal)[0]
+        log_accept = log_prob_proposal - log_prob - 0.5 * ((proposal - self.x - 0.5 * lr * grad_res)**2).sum() + 0.5 * ((self.x - proposal - 0.5 * lr * grad_proposal)**2).sum()
+
+        # Accept or reject proposal
+        if log(torch.rand(1)) < log_accept:
+            self.x = proposal
+            # return the samples shape: (num_samples, num_chains, dim)
+    
+    # not tested either
+    def hmc_step(self):
+        self.x = self.x.to(self.device)
+        self.x = self.x.detach().requires_grad_(True)
+        
+        # fix the lr to just alpha for HMC
+        lr = alpha #next(self.learning_rate)
+
+        # Initialize momentum
+        p = torch.randn_like(self.x)
+
+
+        x_cur = torch.clone(self.x)
+
+        # Compute initial Hamiltonian
+        log_prob_val = self.log_prob(x_cur)
+        kinetic_energy = 0.5 * p.pow(2).sum()
+        hamiltonian = -log_prob_val + kinetic_energy
+
+        # Leapfrog integration
+        for _ in range(self.num_L_steps):
+            grad_res = torch.autograd.grad(log_prob_val.sum(), x_cur)[0]
+            p = p - 0.5 * lr * grad_res  # half step update for momentum
+            x_next = x_cur + lr * p  # full step update for position
+            log_prob_val = self.log_prob(x_next)
+            grad_res = torch.autograd.grad(log_prob_val.sum(), x_next)[0]
+            p = p - 0.5 * lr * grad_res  # half step update for momentum
+            x_cur = x_next
+
+        # Compute proposed Hamiltonian
+        kinetic_energy = 0.5 * p.pow(2).sum()
+        proposed_hamiltonian = -log_prob_val + kinetic_energy
+
+        # Metropolis-Hastings acceptance step
+        if torch.log(torch.rand(1)) < hamiltonian - proposed_hamiltonian:
+            print("accept")
+            self.x = x_next
+
+    def sample(self, sampler_type = "ula"):
+        # sampler type
+        if sampler_type == "ula":
+            step_fn = self.step 
+        elif sampler_type == "mala":        
+            step_fn = self.mala_step
+        elif sampler_type == "hmc": 
+            step_fn = self.hmc_step
+        else:
+            step_fn = self.step
+
         # run the burn in
         for i in range(self.burn_in):
-            self.step()
+            step_fn()
+            
         # for each sample, run the step, and add the samples to list    
         for i in range(self.num_samples):
-            self.step()
+            step_fn()
+            
             self.sample_list.append(self.x.detach().cpu().numpy())
         self.sample_list_np = np.array(self.sample_list)
         return self.sample_list_np

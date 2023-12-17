@@ -135,6 +135,20 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1):
     #print("Expectation from each chain: ", lsampler.eval_expectation(h))
     print("Expectation from all chains: ", (h(samples)).mean())
 
+
+def eval_HMC(dist, dim, h, num_samples=100, num_chains=1):
+    # to make the initial distribution different from the true distribution
+    init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
+
+    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
+                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 1e-1, num_L_steps=10)
+
+    # shape of samples: (num_samples, num_chains, dim), np array
+    samples = lsampler.sample()
+    #print("Expectation from each chain: ", lsampler.eval_expectation(h))
+    print("Expectation from all chains: ", (h(samples)).mean())
+
+
 dist = NormalDistribution(mean=2, std=4)
 
 #print(find_best_range_bayesopt(dist, 1))
@@ -142,3 +156,4 @@ dist = NormalDistribution(mean=2, std=4)
 #test_other_methods()
 
 eval_Langevin(dist, dim=1, h=h, num_samples=1, num_chains=1024)
+#eval_HMC(dist, dim=1, h=h, num_samples=1, num_chains=1024)
