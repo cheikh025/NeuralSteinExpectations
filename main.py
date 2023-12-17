@@ -110,31 +110,6 @@ def find_best_range_bayesopt(dist, dim, min_start=1, max_end=30, num_iterations=
     optimizer.maximize(n_iter=num_iterations)
     return optimizer.max['params']
 
-def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1):
-    # to make the initial distribution different from the true distribution
-    init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
-
-    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
-                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 1.,gamma=0.2)
-
-    # shape of samples: (num_samples, num_chains, dim), np array
-    samples = lsampler.sample()
-    #print("Expectation from each chain: ", lsampler.eval_expectation(h))
-    print("Expectation from all chains: ", (h(samples)).mean())
-
-
-def eval_HMC(dist, dim, h, num_samples=100, num_chains=1):
-    # to make the initial distribution different from the true distribution
-    init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
-
-    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
-                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 5e-2, num_L_steps=5)
-
-    # shape of samples: (num_samples, num_chains, dim), np array
-    samples = lsampler.sample(sampler_type="hmc")
-    #print("Expectation from each chain: ", lsampler.eval_expectation(h))
-    print("Expectation from all chains: ", (h(samples)).mean())
-
 
 dist = NormalDistribution(mean=5, std=4)
 

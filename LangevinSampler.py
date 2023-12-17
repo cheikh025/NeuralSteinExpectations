@@ -5,7 +5,7 @@ import torch.distributions as tdist
 import matplotlib.pyplot as plt
 
 
-# device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
 
 # a version of Unadjusted Langevin Algorithm
 class LangevinSampler:
@@ -163,6 +163,38 @@ class LangevinSampler:
         
         # sample shape: (num_samples, num_chains, dim)
         return np.mean(h(self.sample_list_np), axis=0)
+
+# to evaluate the expectation of a function h(x) under a distribution dist
+def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, verbose=False):
+    # to make the initial distribution different from the true distribution
+    init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
+
+    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
+                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 1.,gamma=0.2)
+
+    # shape of samples: (num_samples, num_chains, dim), np array
+    samples = lsampler.sample()
+
+    #print("Expectation from each chain: ", lsampler.eval_expectation(h))
+    if verbose:
+        print("Expectation from all chains: ", (h(samples)).mean())
+    return (h(samples)).mean()
+
+def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, verbose= False):
+    # to make the initial distribution different from the true distribution
+    init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
+
+    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
+                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 5e-2, num_L_steps=5)
+
+    # shape of samples: (num_samples, num_chains, dim), np array
+    samples = lsampler.sample(sampler_type="hmc")
+    
+    #print("Expectation from each chain: ", lsampler.eval_expectation(h))
+    if verbose:
+        print("Expectation from all chains: ", (h(samples)).mean())
+
+    return (h(samples)).mean()
 
 # mixture of gaussian to test
 class Mixture:
