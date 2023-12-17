@@ -32,6 +32,7 @@ class LangevinSampler:
 
         #for HMC only 
         self.num_L_steps = num_L_steps
+        self.init_lr = alpha
 
     def gaussian_noise(self, lr):
         noise_sampling = tdist.MultivariateNormal(self._mean, 
@@ -95,7 +96,7 @@ class LangevinSampler:
         self.x = self.x.detach().requires_grad_(True)
         
         # fix the lr to just alpha for HMC
-        lr = alpha #next(self.learning_rate)
+        lr = self.init_lr #next(self.learning_rate)
 
         # Initialize momentum
         p = torch.randn_like(self.x)
@@ -105,11 +106,12 @@ class LangevinSampler:
 
         # Compute initial Hamiltonian
         log_prob_val = self.log_prob(x_cur)
-        kinetic_energy = 0.5 * p.pow(2).sum()
-        hamiltonian = -log_prob_val + kinetic_energy
+        kinetic_energy = 0.5 * p.pow(2).sum(dim=-1)
+        hamiltonian = -log_prob_val.reshape(self.num_chains) + kinetic_energy.reshape(self.num_chains)
 
         # Leapfrog integration
         for _ in range(self.num_L_steps):
+            log_prob_val = self.log_prob(x_cur)
             grad_res = torch.autograd.grad(log_prob_val.sum(), x_cur)[0]
             p = p - 0.5 * lr * grad_res  # half step update for momentum
             x_next = x_cur + lr * p  # full step update for position
@@ -119,13 +121,19 @@ class LangevinSampler:
             x_cur = x_next
 
         # Compute proposed Hamiltonian
-        kinetic_energy = 0.5 * p.pow(2).sum()
-        proposed_hamiltonian = -log_prob_val + kinetic_energy
+        kinetic_energy = 0.5 * p.pow(2).sum(dim=-1)
+        proposed_hamiltonian = -log_prob_val.reshape(self.num_chains) + kinetic_energy.reshape(self.num_chains)
+
+        #print("proposed ham: {}, ham: {}".format(proposed_hamiltonian, hamiltonian))
 
         # Metropolis-Hastings acceptance step
-        if torch.log(torch.rand(1)) < hamiltonian - proposed_hamiltonian:
-            print("accept")
-            self.x = x_next
+        #print("shape of hamiltonian: ", hamiltonian.shape)
+        accept_bools = torch.log(torch.rand_like(hamiltonian)) < proposed_hamiltonian - hamiltonian
+        if torch.any(accept_bools):
+            #print("accept")
+            self.x = self.x.detach()
+            x_next = x_next.detach()
+            self.x[accept_bools] = x_next[accept_bools]
 
     def sample(self, sampler_type = "ula"):
         # sampler type
