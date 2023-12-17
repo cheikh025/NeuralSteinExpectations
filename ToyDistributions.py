@@ -1,10 +1,12 @@
 import torch
+import math as m
+
 #custom unnormalsied distribution log
 
 def harmonic_oscillator_distribution_log(x, alpha, beta):
     """ Harmonic Oscillator Inspired Distribution - Log version   p(\mathbf{x}) = \exp\left(-\frac{1}{2} \sum_{i=1}^{d} \alpha_i x_i^2 + \beta \sum_{i=1}^{d-1} x_i x_{i+1}\right)"""
-    quadratic_term = -0.5 * torch.sum(alpha * x**2)
-    coupling_term = beta * torch.sum(x[:-1] * x[1:])
+    quadratic_term = -0.5 * torch.sum(alpha * x**2, dim=-1)
+    coupling_term = beta * torch.sum(x[:,:-1] * x[:,1:], dim=-1)
     return quadratic_term + coupling_term
 
 def rotational_symmetry_distribution_log(x, k, gamma, omega, epsilon=1e-10):
@@ -25,6 +27,40 @@ def fractal_inspired_distribution_log(x, sigma, N, epsilon=1e-10):
     cosine_sum = torch.sum(torch.stack([torch.cos(n * torch.pi * x) / 2**n for n in range(1, N+1)]), dim=0)
     return gaussian_term + torch.log(torch.clamp(torch.prod(1 + cosine_sum, dim=0), min=epsilon))
 
+# Double banana looking distribution
+def double_banana_log_prob(x):
+    x = x.T
+    return -(((torch.norm(x, p=2, dim=0) - 2.0) / 0.4) ** 2 - torch.log(torch.exp(-0.5 * ((x[0] - 2.0) / 0.6) ** 2) +
+                                                                        torch.exp(-0.5 * ((x[0] + 2.0) / 0.6) ** 2)))
+
+# Sinusoidal looking distribution
+def sinusoidal_log_prob(x):
+    x = x.T
+    val= -(0.5 * ((x[1] - torch.sin(2.0 * m.pi * x[0] / 4.0)) / 0.4) ** 2)
+    
+    #cutoff after [-4,4] interval
+    #val[x[0] > 4] = -1000000.0
+    #val[x[0] < -4] = -1000000.0
+    return val
+
+# Banana Distribution
+def banana_log_prob(x):
+    bananaDist = torch.distributions.MultivariateNormal(torch.Tensor([0, 4]),
+                                                        covariance_matrix=torch.tensor([[1, 0.5], [0.5, 1]]))
+    a = 2
+    b = 0.2
+    y = torch.zeros(x.size())
+    y[:, 0] = x[:, 0] / a
+    y[:, 1] = x[:, 1] * a + a * b * (x[:, 0] * x[:, 0] + a * a)
+    return bananaDist.log_prob(y)
+
+
+# Donut Distribution
+def donut_log_prob(x):
+    radius = 2.6
+    sigma2 = 0.033
+    r = x.norm(dim=1)
+    return -(r - radius)**2 / sigma2
 
 # example of a how to use the above distributions
 

@@ -3,7 +3,7 @@ import torch
 from torch import cdist
 import torch.distributions as tdist
 import matplotlib.pyplot as plt
-
+from distributions import Mixture
 
 device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
 
@@ -196,26 +196,6 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, verbose= False):
 
     return (h(samples)).mean()
 
-# mixture of gaussian to test
-class Mixture:
-    def __init__(self, comps, pi):
-        self.pi = tdist.OneHotCategorical(probs=pi)
-        self.comps = comps
-
-    def sample(self, n):
-        c = self.pi.sample((n,))
-        xs = [comp.sample((n,)).unsqueeze(-1) for comp in self.comps]
-        xs = torch.cat(xs, -1)
-        x = (c[:, None, :] * xs).sum(-1)
-        return x
-
-    def log_prob(self, x):
-        lpx = [comp.log_prob(x) for comp in self.comps]
-        lpx = [lp.view(lp.size(0), -1).sum(1).unsqueeze(-1) for lp in lpx]
-        lpx = torch.cat(lpx, -1).clamp(-20, 20)
-        logpxc = lpx + torch.log(self.pi.probs[None])
-        logpx = logpxc.logsumexp(1)
-        return logpx
         
 def gaussian_grid_2d(size=2, std=.25):
     comps = []
