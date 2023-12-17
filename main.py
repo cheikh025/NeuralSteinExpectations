@@ -9,6 +9,8 @@ import random
 import math
 from bayes_opt import BayesianOptimization
 from OtherMethods import HamiltonianMCMC 
+from neuralStein import *
+from LangevinSampler import *
 
 def generate_shuffled_samples(dim, sample_range, n_samples):
     samples = []
@@ -36,8 +38,12 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, epochs=1
 
 # Define the function h(x)
 def h(x):
-    return torch.sum(x**2, dim=1)
-
+    # I changed this to sum along last axis (to allow multiple chains)
+    #return torch.sum(x**2, dim=-1)
+    dim = x.shape[-1]
+    if dim == 1:
+        return x**2
+    return (x**2).sum(-1)
 
 def test_other_methods():
     ### Test examples for the other methods ###
@@ -117,7 +123,22 @@ def find_best_range_bayesopt(dist, dim, min_start=1, max_end=30, num_iterations=
     optimizer.maximize(n_iter=num_iterations)
     return optimizer.max['params']
 
-dist = NormalDistribution(mean=0, std=1)
-print(find_best_range_bayesopt(dist, 1))
+def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1):
+    # to make the initial distribution different from the true distribution
+    init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
 
-test_other_methods()
+    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
+                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 1.,gamma=0.2)
+
+    # shape of samples: (num_samples, num_chains, dim), np array
+    samples = lsampler.sample()
+    #print("Expectation from each chain: ", lsampler.eval_expectation(h))
+    print("Expectation from all chains: ", (h(samples)).mean())
+
+dist = NormalDistribution(mean=2, std=4)
+
+#print(find_best_range_bayesopt(dist, 1))
+
+#test_other_methods()
+
+eval_Langevin(dist, dim=1, h=h, num_samples=1, num_chains=1024)
