@@ -394,3 +394,39 @@ class CustomDistribution(Distribution):
             return torch.rand(n_samples, self.dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
     def second_moment(self):
         return None
+
+
+# Double banana looking distribution
+def double_banana_log_prob(x):
+    x = x.T
+    return -(((torch.norm(x, p=2, dim=0) - 2.0) / 0.4) ** 2 - torch.log(torch.exp(-0.5 * ((x[0] - 2.0) / 0.6) ** 2) +
+                                                                        torch.exp(-0.5 * ((x[0] + 2.0) / 0.6) ** 2)))
+
+# Sinusoidal looking distribution
+def sinusoidal_log_prob(x):
+    x = x.T
+    val= -(0.5 * ((x[1] - torch.sin(2.0 * m.pi * x[0] / 4.0)) / 0.4) ** 2)
+    
+    #cutoff after [-4,4] interval
+    #val[x[0] > 4] = -1000000.0
+    #val[x[0] < -4] = -1000000.0
+    return val
+
+# Banana Distribution
+def banana_log_prob(x):
+    bananaDist = torch.distributions.MultivariateNormal(torch.Tensor([0, 4]),
+                                                        covariance_matrix=torch.tensor([[1, 0.5], [0.5, 1]]))
+    a = 2
+    b = 0.2
+    y = torch.zeros(x.size())
+    y[:, 0] = x[:, 0] / a
+    y[:, 1] = x[:, 1] * a + a * b * (x[:, 0] * x[:, 0] + a * a)
+    return bananaDist.log_prob(y)
+
+
+# Donut Distribution
+def donut_log_prob(x):
+    radius = 2.6
+    sigma2 = 0.033
+    r = x.norm(dim=1)
+    return -(r - radius)**2 / sigma2
