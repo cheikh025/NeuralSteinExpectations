@@ -21,21 +21,6 @@ def generate_shuffled_samples(dim, sample_range, n_samples):
 
     return torch.stack(samples, dim=1)
 
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, epochs=1000):
-    # Initialize distribution and MLP network
-    net = MLP(n_dims=net_dims, n_out=net_dims)
-    optimizer = optim.Adam(net.parameters(), lr=1e-3)
-
-    # Generate and prepare sample data
-    sample = dist.generate_points(n_samples, sample_range)
-    sample.requires_grad = True
-
-    # Train the network and estimate the moment
-    trained_net = train_network(net, optimizer, sample, dist, h, epochs, verbose=False)
-    est_moment = h(sample) - stein_g(sample, trained_net, dist.log_prob)
-    #print(f"Estimated moment for E[x**2] with {dist.__class__.__name__}: {abs(dist.second_moment() - est_moment.mean().item())}")
-    return -abs(est_moment.mean().item() - dist.second_moment())
-
 # Define the function h(x)
 def h(x):
     # I changed this to sum along last axis (to allow multiple chains)
@@ -71,8 +56,9 @@ def create_and_evaluate(distribution_class, dim):
      params = generate_distribution_params(distribution_class.__name__, dim)
      dist_instance = distribution_class(**params)
      #best_range = find_best_range(dist_instance, 1)
-     Estimated = evaluate_stein_expectation(dist_instance, dim,(-2,2), 300)
-     print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
+     Estimated = evaluate_stein_expectation(dist_instance, dim,(-2,2), 300, h=h)
+     Error = -abs(Estimated - dist.second_moment())
+     print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}, Error: {Error}")
      #true_estimated = expectation_sum_of_squares(dist_instance.mean, dist_instance.covariance)
      #print(f"True moment for {dist_instance.__class__.__name__}: {true_estimated}")
      return Estimated
@@ -85,8 +71,9 @@ def evaluate_all_univariate_distributions():
         for params in params_list:
             dist_instance = dist_class(**params)
             #best_range = find_best_range(dist_instance, 1)
-            Estimated = evaluate_stein_expectation(dist_instance, 1, (-5,5), 300)
-            print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}")
+            Estimated = evaluate_stein_expectation(dist_instance, 1, (-5,5), 300, h = h)
+            Error = -abs(Estimated - dist_instance.second_moment())
+            print(f"Estimated moment for {dist_instance.__class__.__name__}: {Estimated}, Error: {Error}")
             all_evaluations.append((dist_class.__name__, params, Estimated))
     return all_evaluations
 
@@ -112,7 +99,7 @@ def evaluate_all_multivariate_distributions(dim):
 def find_best_range_bayesopt(dist, dim, min_start=1, max_end=30, num_iterations=200):
     def evaluate_stein_expectation_bayesopt(x,y):
         sample_range = (x,y)
-        return evaluate_stein_expectation(dist, dim, sample_range, 100, 300)
+        return evaluate_stein_expectation(dist, dim, sample_range, 100, 300, h = h)
     pbounds = {'x': (min_start, max_end-1), 'y': (min_start+1, max_end)}
     optimizer = BayesianOptimization(
         f=evaluate_stein_expectation_bayesopt,
@@ -157,3 +144,5 @@ dist = NormalDistribution(mean=5, std=4)
 
 #eval_Langevin(dist, dim=1, h=h, num_samples=1, num_chains=1024)
 eval_HMC(dist, dim=1, h=h, num_samples=1, num_chains=1024)
+
+#evaluate_all_univariate_distributions()
