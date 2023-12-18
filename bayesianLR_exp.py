@@ -256,11 +256,14 @@ def experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y):
     v_data_y_torch = torch.Tensor(v_data_y)
 
     x_mat = get_design_mat(data_x)
-
+    
     post_mean, post_cov = linRegr_posterior(x_mat, data_y_torch)
 
     dim = 2
 
+    def distLog(x):
+        return posteriorLogProb(x, data_x, data_y)
+    dist = CustomDistribution(distLog, dim)
     # estimate E[w[0] | D]
     h = first_comp
 
@@ -352,3 +355,11 @@ def experiment_bayes_pred(data_x, data_y, v_data_x, v_data_y, verbose= True):
     mean_Stein_preds = h(v_data_y) - stein_g(v_data_y, net_vx, posteriorPredLogProb)
 
     plt.plot(mean_Stein_preds)
+
+
+
+if __name__ == "__main__":
+    data_x, data_y = get_airquality(batch_size = 512, normalize = True)
+    v_data_x, v_data_y = gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y)
+
+    experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y)
