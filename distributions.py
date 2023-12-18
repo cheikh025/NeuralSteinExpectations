@@ -402,7 +402,7 @@ class Mixture:
     def __init__(self, comps, pi):
         self.pi = tdist.OneHotCategorical(probs=pi)
         self.comps = comps
-        self.dim = comps[0].dim
+        self.dim = comps[0].mean.shape[-1] #comps[0].dim
 
     def sample(self, n):
         c = self.pi.sample((n,))
@@ -414,7 +414,7 @@ class Mixture:
     def log_prob(self, x):
         lpx = [comp.log_prob(x) for comp in self.comps]
         lpx = [lp.view(lp.size(0), -1).sum(1).unsqueeze(-1) for lp in lpx]
-        lpx = torch.cat(lpx, -1).clamp(-20, 20)
+        lpx = torch.cat(lpx, -1) #.clamp(-20, 20)
         logpxc = lpx + torch.log(self.pi.probs[None])
         logpx = logpxc.logsumexp(1)
         return logpx
