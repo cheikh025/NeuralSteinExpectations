@@ -57,9 +57,9 @@ class LangevinSampler:
 
         noise = self.gaussian_noise(lr)
 
-        log_prob = self.log_prob(self.x)
+        log_prob_val = self.log_prob(self.x)
         
-        grad_res = torch.autograd.grad(log_prob.sum(), self.x)[0]
+        grad_res = torch.autograd.grad(log_prob_val.sum(), self.x)[0]
 
         #print("grad res shape: {}, noise shape: {}".format(grad_res.shape, noise.shape))
 
@@ -157,20 +157,26 @@ class LangevinSampler:
 
     # evaluate expectation along each chain 
     # shape: (num_chains, )    
-    def eval_expectation(self, h):
+    def eval_expectation(self, h, return_samples=False):
         print("samples shape: ", self.sample_list_np.shape)
         #print("samples: ", self.sample_list_np)
         
         # sample shape: (num_samples, num_chains, dim)
+        if return_samples:
+            return np.mean(h(self.sample_list_np), axis=0), self.sample_list_np
         return np.mean(h(self.sample_list_np), axis=0)
-
+    
 # to evaluate the expectation of a function h(x) under a distribution dist
-def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, verbose=False):
+def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False):
     # to make the initial distribution different from the true distribution
     init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
 
-    lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
-                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 1.,gamma=0.2)
+    lsampler = LangevinSampler(log_prob=dist.log_prob, 
+                num_chains =num_chains, 
+                num_samples = num_samples, burn_in= 5000, 
+                init_samples=init_samples, 
+                alpha= alpha, 
+                gamma = gamma)
 
     # shape of samples: (num_samples, num_chains, dim), np array
     samples = lsampler.sample()
@@ -178,14 +184,21 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, verbose=False):
     #print("Expectation from each chain: ", lsampler.eval_expectation(h))
     if verbose:
         print("Expectation from all chains: ", (h(samples)).mean())
+    if return_samples:
+        return (h(samples)).mean(), samples
     return (h(samples)).mean()
 
-def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, verbose= False):
+def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_steps = 5, verbose= False, return_samples=False):
+    # good params for Gaussian are: alpha=  5e-2, num_L_steps=5
+    # for mixture try: 
+    
     # to make the initial distribution different from the true distribution
     init_samples = 10 + 10*torch.randn(num_chains, dim).to(device)
 
     lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
-                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, alpha= 5e-2, num_L_steps=5)
+                num_samples = num_samples, burn_in= 5000, init_samples=init_samples, 
+                alpha= alpha, 
+                num_L_steps=num_L_steps)
 
     # shape of samples: (num_samples, num_chains, dim), np array
     samples = lsampler.sample(sampler_type="hmc")
@@ -193,7 +206,10 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, verbose= False):
     #print("Expectation from each chain: ", lsampler.eval_expectation(h))
     if verbose:
         print("Expectation from all chains: ", (h(samples)).mean())
-
+   
+    if return_samples:
+        return (h(samples)).mean(), samples
+    
     return (h(samples)).mean()
 
         
