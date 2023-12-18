@@ -38,8 +38,8 @@ def exp_compare_dim_Gaussian():
                                               ) 
         # Evaluate Stein Expectation
         stein_est = evaluate_stein_expectation(dist, dim,(-10,10), 500*(int(dim/10)+1), h=h, epochs=1000*(int(dim/10)+1))
-        langevin_est = eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
-        hmc_est = eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
+        langevin_est = eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100,device=device)
+        hmc_est = eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100, device=device)
 
         # since the moment sums over each dimension, the true moment is the sum of the moments for each dimension
         true_moment = true_moments[dims.index(dim)]
@@ -166,9 +166,12 @@ def plot_separate_boxplots() :
 
 
 #plot_separate_boxplots()
-#exp_compare_dim_Gaussian()
+exp_compare_dim_Gaussian()
 #exp_compare_over_multiple_distributions()
 def exp_compare_dim_Gaussian_2():
+    """
+    Hard coded results from running the experiment on a multivariate normal distribution with mean 3 and std 5
+    """
     dims = [1, 2, 3, 5, 10, 15, 20, 25, 30, 50]
     L = []        
     L.append({'True_moment': 34.0, 'Stein_estimate': 34.27239227294922, 'Langevin_estimate': 40.98512649536133, 'HMC_estimate': 41.045536041259766})

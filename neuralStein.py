@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from distributions import *
 from utils import * 
 from network import MLP
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
