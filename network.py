@@ -7,6 +7,22 @@ class Swish(nn.Module):
     def forward(self, x):
         return x * torch.sigmoid(x)
 
+# Learned Swish Function
+class LSwish(nn.Module):
+    def __init__(self, dim=-1):
+        super(Swish, self).__init__()
+        if dim > 0:
+            self.beta = nn.Parameter(torch.ones((dim,)))
+        else:
+            self.beta = torch.ones((1,))
+
+    def forward(self, x):
+        if len(x.size()) == 2:
+            return x * torch.sigmoid(self.beta[None, :] * x)
+        else:
+            return x * torch.sigmoid(self.beta[None, :, None, None] * x)
+   
+
 class normalize(nn.Module):        
   def forward(self, inp):
     mean_inp = inp.mean()
@@ -42,11 +58,11 @@ class normalizedMLP(nn.Module):
         self.net = nn.Sequential(
                 normalize(),
                 layer(n_dims, n_hid),
-                Swish(), 
+                LSwish(), 
                 layer(n_hid, n_hid),
-                Swish(),
+                LSwish(),
                 layer(n_hid, n_hid),
-                Swish(),
+                LSwish(),
                 layer(n_hid, n_out)
             )
 
