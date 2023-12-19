@@ -5,7 +5,7 @@ from utils import *
 from network import MLP
 from tqdm import tqdm
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = 'cpu'#torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def stein_g(x, g, logp):
     """Compute the Stein operator of g for a given log probability function logp."""
@@ -47,7 +47,7 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
 
     # Train the network and estimate the moment
     trained_net = train_network(net, optimizer, sample, dist, h, epochs, verbose=False)
-    est_moment = h(sample) 
-    est_moment -= stein_g(sample, trained_net, dist.log_prob).to(est_moment.device)
+    est_moment = h(sample) - stein_g(sample, trained_net, dist.log_prob)#.to(est_moment.device)
+    #est_moment -= stein_g(sample, trained_net, dist.log_prob)#.to(est_moment.device)
     #print(f"Estimated moment for E[x**2] with {dist.__class__.__name__}: {abs(dist.second_moment() - est_moment.mean().item())}")
     return est_moment.mean().item() #-abs(est_moment.mean().item() - dist.second_moment())

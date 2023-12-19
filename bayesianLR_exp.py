@@ -48,6 +48,7 @@ def get_airquality(batch_size, normalize = True):
     df1 = df1.drop(columns=['NMHC_GT'])
     df1 = df1.drop(columns=['DATE'])
     df1 = df1.drop(columns=['TIME'])
+    df1 = df1.drop(columns=['AH'])
     
     #delete data with 'CO_GT' = -200
     df1 = df1[df1['CO_GT'] != -200]
@@ -59,7 +60,7 @@ def get_airquality(batch_size, normalize = True):
         df1 = (df1 - df1.mean())/(df1.std()) #(df1-df1.min())/(df1.max()-df1.min())
     data=df1[col1]
     target = data.pop('CO_GT')
-
+    #data =  data[['PT08_S1_CO']]
     train_size = int((len(data.values) * 0.8) / 5)
 
     train_ds = torch.utils.data.TensorDataset(torch.Tensor(data.values[:train_size, :]).float(), torch.Tensor(target.values[:train_size]).float())
@@ -87,8 +88,8 @@ TARGET_MU = 0.0
 TARGET_VAR = 0.5*VAR
 
 # x data
-def gen_data(npoints = 1000, mu_t = TARGET_MU, var_t = TARGET_VAR):
-    data = np.random.normal(loc = mu_t, scale = np.sqrt(var_t), size = npoints)
+def gen_data(npoints = 1000, mu_t = TARGET_MU, var_t = TARGET_VAR, dim=1):
+    data = np.random.normal(loc = mu_t, scale = np.sqrt(var_t), size =(npoints, dim))
     return data 
 
 
@@ -98,11 +99,11 @@ W_TRUE = np.array([-5.0, 10.0]) #y = 10x + -5)
 VAR_Y = 1.0 #1.0
 
 
-def gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y):
-    data_x = gen_data(npoints = npoints, mu_t = mu_t_x, var_t= var_t_x)
+def gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y, dim=1):
+    data_x = gen_data(npoints = npoints, mu_t = mu_t_x, var_t= var_t_x, dim=dim)
 
     #N, array of y_vals
-    data_y = w_true[0] + data_x*w_true[1]
+    data_y = w_true[0] + data_x@np.ones(dim)*(w_true[1])
 
     # add noise to y to get correct predictive variance
     data_y = data_y + np.sqrt(var_y)*np.random.randn(*data_y.shape) 
@@ -113,7 +114,7 @@ def gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_tr
 # Bayesian linear regression implementation 
 #########################################################################
 
-PRIOR_PREC = 1e-4 #0.0
+PRIOR_PREC = 1e-2 #0.0
 LLHD_PREC = 1/VAR_Y #1e10 #1.0
 
 # Exact posterior
@@ -122,7 +123,6 @@ LLHD_PREC = 1/VAR_Y #1e10 #1.0
 def linRegr_posterior(x_mat, data_y, prior_prec = PRIOR_PREC, llhd_prec = LLHD_PREC):
     #compute gram matrix
     K = (x_mat.T @ x_mat)
-
     #posterior precision matrix
     post_prec = prior_prec*torch.eye(K.shape[0]) + llhd_prec*K 
     post_cov = torch.linalg.inv(post_prec)
@@ -134,7 +134,6 @@ def linRegr_posterior(x_mat, data_y, prior_prec = PRIOR_PREC, llhd_prec = LLHD_P
 def linRegr_posterior_cov(x_mat, prior_prec = PRIOR_PREC, llhd_prec = LLHD_PREC):
     #compute gram matrix
     K = (x_mat.T @ x_mat)
-
     #posterior precision matrix
     post_prec = prior_prec*torch.eye(K.shape[0]) + llhd_prec*K 
     post_cov = torch.linalg.inv(post_prec)
@@ -159,9 +158,11 @@ def linRegr_pred_var(x_input, post_cov, llhd_prec = LLHD_PREC):
 
 #data_x is [N,] of data points 
 def get_design_mat(data_x):
-    data_x = data_x.reshape(-1)
-
-    x_mat = torch.stack([torch.ones_like(data_x), data_x], axis=1)
+    #data_x = data_x.reshape(-1)
+    if len(data_x.shape) == 1:
+        data_x = data_x.reshape(-1, 1)
+    x_mat =  torch.cat([torch.ones(data_x.shape[0], 1), data_x], dim=1)
+    #torch.stack([torch.ones_like(data_x), data_x], axis=1)
 
     return x_mat 
 
@@ -256,21 +257,21 @@ def experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y):
     v_data_y_torch = torch.Tensor(v_data_y)
 
     x_mat = get_design_mat(data_x)
-    
+  
     post_mean, post_cov = linRegr_posterior(x_mat, data_y_torch)
 
-    dim = 2
+    dim = post_mean.shape[0]
 
     def distLog(x):
-        return posteriorLogProb(x, data_x, data_y)
+        return posteriorLogProb(x, v_data_x_torch, v_data_y_torch)
     dist = CustomDistribution(distLog, dim)
     # estimate E[w[0] | D]
     h = first_comp
 
-    stein_est = evaluate_stein_expectation(dist, dim,(-10,10), dim*300, h=h, epochs=1000*(int(dim/10)+1))
+    stein_est = evaluate_stein_expectation(dist, dim,(-10,10), 500, h=h, epochs=1000)
         
-    langevin_est = eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
-    hmc_est = eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
+    langevin_est =  0#eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=10)
+    hmc_est = 0#eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=10)
 
     # since the moment sums over each dimension, the true moment is the sum of the moments for each dimension
     true_moment = post_mean[0]
@@ -280,10 +281,10 @@ def experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y):
     # estimate E[w[1] | D]
     h = second_comp
 
-    stein_est = evaluate_stein_expectation(dist, dim,(-10,10), dim*300, h=h, epochs=1000*(int(dim/10)+1))
+    stein_est = evaluate_stein_expectation(dist, dim,(-10,10), 500, h=h, epochs=1000)
         
-    langevin_est = eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
-    hmc_est = eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
+    langevin_est = 0#eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
+    hmc_est = 0#eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
 
     # since the moment sums over each dimension, the true moment is the sum of the moments for each dimension
     true_moment = post_mean[1]
@@ -359,7 +360,13 @@ def experiment_bayes_pred(data_x, data_y, v_data_x, v_data_y, verbose= True):
 
 
 if __name__ == "__main__":
-    data_x, data_y = get_airquality(batch_size = 512, normalize = True)
-    v_data_x, v_data_y = gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y)
+    trainloader, testloader,  train_ds, test_ds= get_airquality(batch_size = 512, normalize = True)
+    data_x, data_y = train_ds.tensors
+    print(data_x.shape)
+    print(data_y.shape)
+    v_data_x, v_data_y = gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y, dim=data_x.shape[1])
+    print(v_data_x.shape)
+    print(v_data_y.shape)
+    
 
     experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y)
