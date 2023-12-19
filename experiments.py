@@ -205,7 +205,10 @@ def exp_compare_dim_Gaussian_2():
 
 
 def exp_compare_dim_MoG():
-    # Your provided data points
+    """
+    Hard coded results from running the experiment on a mixture of gaussians
+    """
+    # data points got from running the experiment exp_compare_dim_Gaussian with the MoG distribution
     data_points = [
         {'Dimension': 1, 'True_moment': 0, 'Stein_estimate': 0.0038942224346101284, 'Langevin_estimate': -0.08428305387496948, 'HMC_estimate': -0.15925830602645874},
         {'Dimension': 2, 'True_moment': 0, 'Stein_estimate': -0.010886505246162415, 'Langevin_estimate': -0.1637292206287384, 'HMC_estimate': -0.054844025522470474},
