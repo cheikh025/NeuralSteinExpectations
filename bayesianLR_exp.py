@@ -11,6 +11,7 @@ from OtherMethods import HamiltonianMCMC
 from neuralStein import *
 from LangevinSampler import *
 import pandas as pd
+from sklearn.metrics import r2_score
 
 DATAROOT = "./Dataset"
 
@@ -88,8 +89,8 @@ TARGET_MU = 0.0
 TARGET_VAR = 0.5*VAR
 
 # x data
-def gen_data(npoints = 1000, mu_t = TARGET_MU, var_t = TARGET_VAR, dim=1):
-    data = np.random.normal(loc = mu_t, scale = np.sqrt(var_t), size =(npoints, dim))
+def gen_data(npoints = 1000, mu_t = TARGET_MU, var_t = TARGET_VAR):
+    data = np.random.normal(loc = mu_t, scale = np.sqrt(var_t), size = npoints)
     return data 
 
 
@@ -99,11 +100,11 @@ W_TRUE = np.array([-5.0, 10.0]) #y = 10x + -5)
 VAR_Y = 1.0 #1.0
 
 
-def gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y, dim=1):
-    data_x = gen_data(npoints = npoints, mu_t = mu_t_x, var_t= var_t_x, dim=dim)
+def gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y):
+    data_x = gen_data(npoints = npoints, mu_t = mu_t_x, var_t= var_t_x)
 
     #N, array of y_vals
-    data_y = w_true[0] + data_x@np.ones(dim)*(w_true[1])
+    data_y = w_true[0] + data_x*w_true[1]
 
     # add noise to y to get correct predictive variance
     data_y = data_y + np.sqrt(var_y)*np.random.randn(*data_y.shape) 
@@ -158,14 +159,10 @@ def linRegr_pred_var(x_input, post_cov, llhd_prec = LLHD_PREC):
 
 #data_x is [N,] of data points 
 def get_design_mat(data_x):
-    #data_x = data_x.reshape(-1)
     if len(data_x.shape) == 1:
         data_x = data_x.reshape(-1, 1)
     x_mat =  torch.cat([torch.ones(data_x.shape[0], 1), data_x], dim=1)
-    #torch.stack([torch.ones_like(data_x), data_x], axis=1)
-
     return x_mat 
-
 
 def global_linRegr_eval(data_x, data_y, v_data_x, v_data_y, plot_dir = "./plots/"):
     data_x = torch.Tensor(data_x) 
@@ -249,124 +246,40 @@ def eval_log_llhd(v_data_y, pred_means, pred_vars):
     log_llhd = log_llhds.sum()
     return log_llhd 
 
-def experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y):
-    data_x = torch.Tensor(data_x) 
-    data_y_torch = torch.Tensor(data_y).reshape(-1, 1) 
 
+def experiment_bayes_mean(v_data_x, v_data_y):
     v_data_x_torch = torch.Tensor(v_data_x)
     v_data_y_torch = torch.Tensor(v_data_y)
 
-    x_mat = get_design_mat(data_x)
-  
-    post_mean, post_cov = linRegr_posterior(x_mat, data_y_torch)
+    x_mat = get_design_mat(v_data_x_torch)
+    print(f'x_mat shape: {x_mat.shape}')
+    post_mean, post_cov = linRegr_posterior(x_mat, v_data_y_torch)
 
-    dim = post_mean.shape[0]
+    dim = x_mat.shape[1]
+    print(f'Posterior mean shape: {post_mean.shape}')
+    print(f'Posterior mean: {post_mean}')
 
     def distLog(x):
         return posteriorLogProb(x, v_data_x_torch, v_data_y_torch)
-    dist = CustomDistribution(distLog, dim)
-    # estimate E[w[0] | D]
-    h = first_comp
-
-    stein_est = evaluate_stein_expectation(dist, dim,(-10,10), 500, h=h, epochs=1000)
-        
-    langevin_est =  0#eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=10)
-    hmc_est = 0#eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=10)
-
-    # since the moment sums over each dimension, the true moment is the sum of the moments for each dimension
-    true_moment = post_mean[0]
-
-    print(f'True posterior mean w[0]: {true_moment}, Stein estimate: {stein_est}, Langevin estimate: {langevin_est}, HMC estimate: {hmc_est}')
-
-    # estimate E[w[1] | D]
-    h = second_comp
-
-    stein_est = evaluate_stein_expectation(dist, dim,(-10,10), 500, h=h, epochs=1000)
-        
-    langevin_est = 0#eval_Langevin(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
-    hmc_est = 0#eval_HMC(dist = dist, dim = dim, h=h, num_samples=10, num_chains=100)
-
-    # since the moment sums over each dimension, the true moment is the sum of the moments for each dimension
-    true_moment = post_mean[1]
-
-    print(f'True posterior mean w[1]: {true_moment}, Stein estimate: {stein_est}, Langevin estimate: {langevin_est}, HMC estimate: {hmc_est}')
-
-
-def experiment_bayes_pred(data_x, data_y, v_data_x, v_data_y, verbose= True):
-    data_x = torch.Tensor(data_x) 
-    data_y = torch.Tensor(data_y).reshape(-1, 1) 
     
-    num_epochs = 1000
-    minibatch_size = 100
+    dist = CustomDistribution(distLog, dim)
+    
+    # Estimate E[w[0] | D] and E[w[1] | D]
+    h_first = first_comp
+    h_second = second_comp
 
-    h = identity
+    stein_est_first = evaluate_stein_expectation(dist, dim, (-10,10), 500, h=h_first, epochs=2000)
+    stein_est_second = evaluate_stein_expectation(dist, dim, (-10,10), 500, h=h_second, epochs=2000)
 
-    # Initialize distribution and MLP network
-    # 1 input = x, 1 input is y (distribution over y, but x is "amortization" parameter)
-    net = MLP(n_dims=2, n_out=1)
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
+    print(f'True posterior mean w[0]: {post_mean[0]}, Stein estimate: {stein_est_first}')
+    print(f'True posterior mean w[1]: {post_mean[1]}, Stein estimate: {stein_est_second}')
 
 
-    # train amortized stein network
-    for epoch in range(num_epochs):
-        # sample a minibatch of data_x
-        minibatch_idx = random.sample(range(len(data_x)), minibatch_size)
-
-        # get the minibatch of data_x
-        minibatch_x = data_x[minibatch_idx]
-        # get the minibatch of data_y
-        minibatch_y = data_y[minibatch_idx]
-        y_samples = minibatch_y #torch.linspace(torch.min(minibatch_y[:,0]), torch.max(minibatch_y[:,0]))
-        y_samples.requires_grad = True
-        
-        # get the design matrix for the minibatch
-        x_mat = get_design_mat(minibatch_x)
-        
-        def logprob(y):
-            return posteriorPredLogProb(minibatch_x, y, data_x, data_y)
-        
-        def net_x(y):
-            # connect the y samples with the minibatch of x
-            # stack them along dimension -1
-            xy = torch.stack([minibatch_x, minibatch_y], axis=-1)
-
-            return net(xy)
-
-        optimizer.zero_grad()
-
-        stein_val = stein_g(y_samples, net_x, logprob)
-
-        grad_s = get_grad(stein_val.sum(), y_samples)
-        grad_h = get_grad(h(y_samples).sum(), y_samples)
-
-        loss = torch.sum((grad_s - grad_h)**2)
-        loss.backward()
-        optimizer.step()
-        if verbose:
-            if epoch % 100 == 0:  
-                print(f'Epoch [{epoch}/{num_epochs}], Loss: {loss.item()}')
-
-    def net_vx(y):
-        # connect the y samples with the minibatch of x
-        # stack them along dimension -1
-        xy = torch.stack([v_data_x, y], axis=-1)
-
-        return net(y)
-    # calculate 
-    mean_Stein_preds = h(v_data_y) - stein_g(v_data_y, net_vx, posteriorPredLogProb)
-
-    plt.plot(mean_Stein_preds)
 
 
 
 if __name__ == "__main__":
     trainloader, testloader,  train_ds, test_ds= get_airquality(batch_size = 512, normalize = True)
     data_x, data_y = train_ds.tensors
-    print(data_x.shape)
-    print(data_y.shape)
-    v_data_x, v_data_y = gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y, dim=data_x.shape[1])
-    print(v_data_x.shape)
-    print(v_data_y.shape)
-    
-
-    experiment_bayes_mean(data_x, data_y, v_data_x, v_data_y)
+    v_data_x, v_data_y = gen_data_regr(npoints = 1000, mu_t_x = TARGET_MU, var_t_x = TARGET_VAR, w_true = W_TRUE, var_y = VAR_Y)
+    experiment_bayes_mean(v_data_x, v_data_y)
