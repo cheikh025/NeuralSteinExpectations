@@ -165,9 +165,6 @@ def plot_separate_boxplots() :
 
 
 
-#plot_separate_boxplots()
-exp_compare_dim_Gaussian()
-#exp_compare_over_multiple_distributions()
 def exp_compare_dim_Gaussian_2():
     """
     Hard coded results from running the experiment on a multivariate normal distribution with mean 3 and std 5
@@ -206,3 +203,43 @@ def exp_compare_dim_Gaussian_2():
     plt.savefig('moment_comparison_dim_Gaussian.png')
     plt.show()
 
+
+def exp_compare_dim_MoG():
+    """
+    Hard coded results from running the experiment on a mixture of gaussians
+    """
+    # data points got from running the experiment exp_compare_dim_Gaussian with the MoG distribution
+    data_points = [
+        {'Dimension': 1, 'True_moment': 0, 'Stein_estimate': 0.0038942224346101284, 'Langevin_estimate': -0.08428305387496948, 'HMC_estimate': -0.15925830602645874},
+        {'Dimension': 2, 'True_moment': 0, 'Stein_estimate': -0.010886505246162415, 'Langevin_estimate': -0.1637292206287384, 'HMC_estimate': -0.054844025522470474},
+        {'Dimension': 3, 'True_moment': 0, 'Stein_estimate': 0.21192054450511932, 'Langevin_estimate': 0.14667458832263947, 'HMC_estimate': -0.6412695050239563},
+        {'Dimension': 5, 'True_moment': 0, 'Stein_estimate': 1.3320016860961914, 'Langevin_estimate': -0.27883660793304443, 'HMC_estimate': 0.42862147092819214},
+        {'Dimension': 10, 'True_moment': 0, 'Stein_estimate': 1.393086552619934, 'Langevin_estimate': 3.0766375064849854, 'HMC_estimate': 3.113009214401245},
+        {'Dimension': 15, 'True_moment': 0, 'Stein_estimate': 0.9975253343582153, 'Langevin_estimate': 5.610352039337158, 'HMC_estimate': 4.341114521026611},
+        {'Dimension': 20, 'True_moment': 0, 'Stein_estimate': 0.20306392014026642, 'Langevin_estimate': 7.227975368499756, 'HMC_estimate': 7.524904251098633},
+        {'Dimension': 30, 'True_moment': 0, 'Stein_estimate': 0.27932214736938477, 'Langevin_estimate': 12.126618385314941, 'HMC_estimate': 13.192464828491211},
+        {'Dimension': 35, 'True_moment': 0, 'Stein_estimate': 0.05003156140446663, 'Langevin_estimate': 16.504140853881836, 'HMC_estimate': 17.330976486206055},
+        {'Dimension': 40, 'True_moment': 0, 'Stein_estimate': -0.21115663647651672, 'Langevin_estimate': 20.183176040649414, 'HMC_estimate': 17.576583862304688},
+        {'Dimension': 45, 'True_moment': 0, 'Stein_estimate': 0.48871171474456787, 'Langevin_estimate': 22.879749298095703, 'HMC_estimate': 21.934673309326172}
+    ]
+
+    data = pd.DataFrame(data_points)
+
+
+    # Plot the results
+    plt.figure(figsize=(10, 6))
+    plt.plot(data['Dimension'], data['Stein_estimate'], label=f"Stein", marker='o')
+    plt.plot(data['Dimension'], data['Langevin_estimate'], label=f"Langevin", marker='x')
+    plt.plot(data['Dimension'], data['HMC_estimate'], label=f"HMC", marker='*')
+    plt.plot(data['Dimension'], data['True_moment'], label='True', marker='s')
+    plt.xlabel('Dimension')
+    plt.ylabel('Estimated Moment')
+    plt.legend(loc='best')
+    plt.title(r'Estimated Moment vs. Dimension MoG')
+    plt.savefig('dim_comparison_mog.png')
+    plt.show()
+
+#plot_separate_boxplots()
+#exp_compare_dim_Gaussian()
+#exp_compare_over_multiple_distributions()
+exp_compare_dim_MoG()
