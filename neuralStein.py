@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from distributions import *
 from utils import * 
-from network import MLP
+from network import MLP, normalizedMLP
 from tqdm import tqdm
 
 device = 'cpu'#torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -36,9 +36,12 @@ def train_network(net, optimizer, sample, normal_dist, h, epochs, verbose=True):
                 print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
     return net
 
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000):
+def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, network='MLP'):
     # Initialize distribution and MLP network
-    net = MLP(n_dims=net_dims, n_out=net_dims)
+    if network == 'NormilizedMLP':
+        net = normalizedMLP(n_dims=net_dims, n_out=net_dims)
+    else :
+        net = MLP(n_dims=net_dims, n_out=net_dims)
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
 
     # Generate and prepare sample data

@@ -10,7 +10,7 @@ class Swish(nn.Module):
 # Learned Swish Function
 class LSwish(nn.Module):
     def __init__(self, dim=-1):
-        super(Swish, self).__init__()
+        super().__init__()
         if dim > 0:
             self.beta = nn.Parameter(torch.ones((dim,)))
         else:
@@ -54,7 +54,7 @@ MLP Block with normalization, and using the Swish activation function
 """
 class normalizedMLP(nn.Module):
     def __init__(self, n_dims, n_out=1, n_hid=300, layer=nn.Linear, dropout=False):
-        super(MLP, self).__init__()
+        super(normalizedMLP, self).__init__()
         self.net = nn.Sequential(
                 normalize(),
                 layer(n_dims, n_hid),
