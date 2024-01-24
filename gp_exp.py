@@ -116,22 +116,22 @@ def integrand_mean(eta):
 dist = MultivariateNormalDistribution(mean = post_mean_etaparms, covariance = post_cov_etaparms)
 
 # the training mesh is uniformly sampled from hypercube [-10, 10]^dim, n_samples total
-#stein_est = evaluate_stein_expectation(dist, 
-#                           dim,
-#                           sample_range= (0,2), 
-#                           n_samples = 1024, 
-#                           h =integrand,
-#                           epochs=1000,
-#                           loss_type = "diff")
+stein_est = evaluate_stein_expectation(dist, 
+                           dim,
+                           sample_range= (0,2), 
+                           n_samples = 1024, 
+                           h =integrand,
+                           epochs=1000,
+                           loss_type = "diff")
 
-#stein_est = evaluate_stein_expectation(dist, 
-#                           dim,
-#                           sample_range= (0,2), 
-#                           n_samples = 1024, 
-#                           h =integrand,
-#                           epochs=1000,
-#                           loss_type = "diff",
-#                           given_sample = post_samples[:1024])
+stein_est_given_samples = evaluate_stein_expectation(dist, 
+                           dim,
+                           sample_range= (0,2), 
+                           n_samples = 1024, 
+                           h =integrand,
+                           epochs=1000,
+                           loss_type = "diff",
+                           given_sample = post_samples[:1024])
 
 #stein_est_grad = evaluate_stein_expectation(dist, 
 #                           dim,
@@ -142,13 +142,20 @@ dist = MultivariateNormalDistribution(mean = post_mean_etaparms, covariance = po
 #                           loss_type = "grad")
 
 # compare to NCV
+ncv_est_given_samples = evaluate_ncv_expectation(dist, 
+                           dim,
+                           sample_range= (0,2), 
+                           n_samples = 1024, 
+                           h =integrand,
+                           epochs=1000,
+                           given_sample = post_samples[:1024])  
+
 ncv_est = evaluate_ncv_expectation(dist, 
                            dim,
                            sample_range= (0,2), 
                            n_samples = 1024, 
                            h =integrand,
-                           epochs=1000)#,
-                           #given_sample = post_samples[:1024])               
+                           epochs=1000)               
 
 # compare to Langevin and HMC
 #eval_Langevin(dist = dist, dim = dim, h=integrand, num_samples=10, num_chains=100)
@@ -164,6 +171,9 @@ post_samples_est = f_vals_true_samples.mean()
 
 #print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein estimate diff: {stein_est}. Stein Est Grad: {stein_est_grad}')
 
-print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}, NCV estimate (using off-samples): {ncv_est}')
+#print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}, NCV estimate (using off-samples): {ncv_est}')
 
 #print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}')
+
+
+print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n NCV estimate (true samples): {ncv_est_given_samples}, NCV estimate (using off-samples): {ncv_est} \n Stein estimate (true samples): {stein_est_given_samples}, Stein estimate (using off-samples): {stein_est}')
