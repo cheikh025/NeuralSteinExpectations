@@ -107,9 +107,9 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
 
 
 #loss type is either 'grad' or 'diff'
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None):
+def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, network="MLP"):
     # Initialize distribution and MLP network
-    if network == 'NormilizedMLP':
+    if network == 'NormalizedMLP':
         net = normalizedMLP(n_dims=net_dims, n_out=net_dims)
     else :
         net = MLP(n_dims=net_dims, n_out=net_dims)
