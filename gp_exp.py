@@ -131,7 +131,7 @@ stein_est_given_samples = evaluate_stein_expectation(dist,
                            h =integrand,
                            epochs=1000,
                            loss_type = "diff",
-                           given_sample = post_samples[:1024])
+                           given_sample = post_samples[:1024].to(device))
 
 #stein_est_grad = evaluate_stein_expectation(dist, 
 #                           dim,
@@ -148,7 +148,7 @@ ncv_est_given_samples = evaluate_ncv_expectation(dist,
                            n_samples = 1024, 
                            h =integrand,
                            epochs=1000,
-                           given_sample = post_samples[:1024])  
+                           given_sample = post_samples[:1024].to(device))  
 
 ncv_est = evaluate_ncv_expectation(dist, 
                            dim,

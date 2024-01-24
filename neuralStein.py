@@ -5,7 +5,7 @@ from utils import *
 from network import MLP, normalizedMLP
 from tqdm import tqdm
 
-device = 'cpu'#torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def stein_g(x, g, logp):
     """Compute the Stein operator of g for a given log probability function logp."""
@@ -122,6 +122,7 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
     else:
         # copy given samples, and set requires_grad to True
         sample = given_sample.clone().detach().requires_grad_(True)
+    sample.to(device)
 
     # Train the network and estimate the moment
     if loss_type == "grad":
