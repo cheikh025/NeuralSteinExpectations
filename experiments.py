@@ -60,8 +60,8 @@ def exp_compare_dim_Gaussian():
 
     # plot the results
     plt.figure()
-    plt.plot(dims, stein_ests, label='Stein')
-    plt.plot(dims, langevin_ests, label='Langevin')
+    plt.plot(dims, stein_ests, label='NSE')
+    plt.plot(dims, langevin_ests, label='LMC')
     plt.plot(dims, hmc_ests, label='HMC')
     plt.plot(dims, true_moments, label='True')
     plt.xlabel('Dimension')
@@ -113,28 +113,14 @@ def exp_compare_over_multiple_distributions():
             print(f"\tDistribution: {name}, HMC: {hmc_est}, LMC: {langevin_est}, Stein: {stein_est}")
     
     data = pd.DataFrame(estimations)
-    data.to_csv("estimations.csv", index=False)
-    # Plot the results
-
-    # Set up the matplotlib figure
-    plt.figure(figsize=(20, 12))
-
-    # Create a boxplot
-    sns.boxplot(x='distribution', y='estimation', hue='sampler', data=data)
-
-    # Add some labels and a title
-    plt.xlabel('Distribution')
-    plt.ylabel('Estimation Value')
-    plt.title('Boxplot of Estimations by Distribution and Sampler')
-
-    # Display the plot
-    plt.show()
     
 
 
 
 def plot_separate_boxplots() :
     data = pd.read_csv("estimations.csv")
+    # Changing the sampler names
+    data['sampler'] = data['sampler'].replace({'hmc': 'HMC', 'lmc': 'LMC', 'stein': 'NSE'})
     # Determine the unique distributions
     unique_distributions = data['distribution'].unique()
 
@@ -192,8 +178,8 @@ def exp_compare_dim_Gaussian_2():
     print(R_squared)
     # Plot the results
     plt.figure(figsize=(10, 6))
-    plt.plot(dims, data['Stein_estimate'], label=rf"Stein $R^2$={R_squared['Stein_R2']:.5f}", marker='o')
-    plt.plot(dims, data['Langevin_estimate'], label=rf"Langevin $R^2$={R_squared['Langevin_R2']:.5f}", marker='x')
+    plt.plot(dims, data['Stein_estimate'], label=rf"NSE $R^2$={R_squared['Stein_R2']:.5f}", marker='o')
+    plt.plot(dims, data['Langevin_estimate'], label=rf"LMC $R^2$={R_squared['Langevin_R2']:.5f}", marker='x')
     plt.plot(dims, data['HMC_estimate'], label=rf"HMC $R^2$={R_squared['HMC_R2']:.5f}", marker='*')
     plt.plot(dims, data['True_moment'], label='True', marker='s')
     plt.xlabel('Dimension')
@@ -228,8 +214,8 @@ def exp_compare_dim_MoG():
 
     # Plot the results
     plt.figure(figsize=(10, 6))
-    plt.plot(data['Dimension'], data['Stein_estimate'], label=f"Stein", marker='o')
-    plt.plot(data['Dimension'], data['Langevin_estimate'], label=f"Langevin", marker='x')
+    plt.plot(data['Dimension'], data['Stein_estimate'], label=f"NSE", marker='o')
+    plt.plot(data['Dimension'], data['Langevin_estimate'], label=f"LMC", marker='x')
     plt.plot(data['Dimension'], data['HMC_estimate'], label=f"HMC", marker='*')
     plt.plot(data['Dimension'], data['True_moment'], label='True', marker='s')
     plt.xlabel('Dimension')
@@ -242,4 +228,6 @@ def exp_compare_dim_MoG():
 #plot_separate_boxplots()
 #exp_compare_dim_Gaussian()
 #exp_compare_over_multiple_distributions()
-exp_compare_dim_MoG()
+#exp_compare_dim_Gaussian_2()
+#exp_compare_dim_MoG()
+   
