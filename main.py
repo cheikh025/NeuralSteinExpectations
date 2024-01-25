@@ -118,6 +118,9 @@ dist = NormalDistribution(mean=5, std=4)
 #test_other_methods()
 
 #eval_Langevin(dist, dim=1, h=h, num_samples=1, num_chains=1024)
-eval_HMC(dist, dim=1, h=h, num_samples=1, num_chains=1024)
-
+#eval_HMC(dist, dim=1, h=h, num_samples=1, num_chains=1024)
+#stein_est_grad = evaluate_stein_expectation(dist, 1, (-10,10), 300, h = h, loss_type = "grad")
+stein_est_diff = evaluate_stein_expectation(dist, 1, (-10,10), 300, h = h, loss_type = "diff")
 #evaluate_all_univariate_distributions()
+print(f"True Val: {5**2 + 4**2}, Stein est diff: {stein_est_diff}")
+#print(f"True Val: {5**2 + 4**2}, Stein est grad: {stein_est_grad}, Stein est diff: {stein_est_diff}")
