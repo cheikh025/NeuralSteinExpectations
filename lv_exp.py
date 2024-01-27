@@ -14,12 +14,14 @@ from scipy.integrate import odeint
 from scipy.stats import lognorm, norm
 import torchdiffeq
 
+# Set the random seed for reproducible results
+torch.manual_seed(23) 
 
 # Set the aesthetic style of the plots
 sns.set(style="whitegrid", palette="pastel")
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-PARAM_TO_ESTIMATE = 2 # This gives the index of the parameter to estimate : 0 = x_1, 1 = x_2, 2 = x_3, 3 = x_4
+PARAM_TO_ESTIMATE = 1 # This gives the index of the parameter to estimate : 0 = x_1, 1 = x_2, 2 = x_3, 3 = x_4
 N = 1024
 EPOCHS = 1000
 
