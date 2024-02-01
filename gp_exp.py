@@ -9,6 +9,7 @@ from LangevinSampler import *
 import pandas as pd
 import seaborn as sns
 from neural_CV import *
+from control_functional import *
 
 # portions of code copied from Sarcos experiments at https://github.com/jz-fun/Meta_Control_Variates/tree/main/Sarcos
 
@@ -115,6 +116,7 @@ def integrand_mean(eta):
 # target dist 
 dist = MultivariateNormalDistribution(mean = post_mean_etaparms, covariance = post_cov_etaparms)
 
+"""
 # the training mesh is uniformly sampled from hypercube [-10, 10]^dim, n_samples total
 stein_est = evaluate_stein_expectation(dist, 
                            dim,
@@ -156,6 +158,13 @@ ncv_est = evaluate_ncv_expectation(dist,
                            n_samples = 1024, 
                            h =integrand,
                            epochs=1000)               
+"""
+
+# Control Functional
+cf_est, cf_obj = evaluate_cf_expectation(dist = dist, sample_range=(0,2),
+                                n_samples= 1024, h = integrand,
+                                reg=0., given_sample = None,
+                                tune_kernel_params = True, return_learned= True)
 
 # compare to Langevin and HMC
 #eval_Langevin(dist = dist, dim = dim, h=integrand, num_samples=10, num_chains=100)
@@ -176,4 +185,5 @@ post_samples_est = f_vals_true_samples.mean()
 #print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}')
 
 
-print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n NCV estimate (true samples): {ncv_est_given_samples}, NCV estimate (using off-samples): {ncv_est} \n Stein estimate (true samples): {stein_est_given_samples}, Stein estimate (using off-samples): {stein_est}')
+#print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n NCV estimate (true samples): {ncv_est_given_samples}, NCV estimate (using off-samples): {ncv_est} \n Stein estimate (true samples): {stein_est_given_samples}, Stein estimate (using off-samples): {stein_est}')
+print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n CF estimate: {cf_est}')

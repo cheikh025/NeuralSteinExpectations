@@ -47,7 +47,7 @@ def train_network_ncv_loss(net, c, optimizer, optim_c, sample, target_dist, h, e
     return net, c
 
 
-def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, reg = 0., given_sample = None):
+def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, reg = 0., given_sample = None, return_learned = False):
     # Initialize distribution and MLP network
     net = MLP(n_dims=net_dims, n_out=net_dims)
     c = torch.tensor(0.0, requires_grad=True)
@@ -70,5 +70,7 @@ def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=
     est_moment = (h_sample - stein_g(sample, trained_net, dist.log_prob).to(h_sample.device).detach() + trained_c.detach()).mean()
     #print(f"Estimated moment for E[x**2] with {dist.__class__.__name__}: {abs(dist.second_moment() - est_moment.mean().item())}")
     print(f"Est moment NCV: {est_moment}, trained_c val: {trained_c.item()}")
-    
+
+    if return_learned:
+        return est_moment.mean().item(), trained_net, trained_c 
     return est_moment.mean().item() #-abs(est_moment.mean().item() - dist.second_moment())

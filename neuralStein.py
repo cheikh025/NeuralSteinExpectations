@@ -5,9 +5,11 @@ from utils import *
 from network import MLP, normalizedMLP
 from tqdm import tqdm
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def stein_g(x, g, logp):
+    device = x.device
+
     """Compute the Stein operator of g for a given log probability function logp."""
     x = x.to(device)
     score = get_grad(logp(x).sum(), x)
@@ -23,6 +25,8 @@ def stein_g(x, g, logp):
     return stein_val_batches
 
 def stein_g_precomputed_score(x, g, score_x):
+    device = x.device
+
     x = x.to(device)
     gx = g(x).reshape(x.shape)
     trace_j_critic = exact_jacobian_trace(gx, x)
@@ -35,6 +39,8 @@ def stein_g_precomputed_score(x, g, score_x):
     return stein_val_batches
 
 def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True):
+    device = sample.device
+    
     sample = sample.to(device)
     net = net.to(device)
 
@@ -51,7 +57,7 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
         #print(f'Stein val shape: {stein_val.shape}')
         #print(f'H sample shape: {h_sample.shape}')
 
-        assert(stein_val.shape == h_sample.shape)
+        assert(stein_val.shape == h_sample.shape), "Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
 
         grad_s = get_grad(stein_val.sum(), sample)
         grad_h = get_grad(h_sample.sum(), sample)
@@ -67,6 +73,8 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
     return net
 
 def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True):
+    device = sample.device
+    
     sample = sample.to(device)
 
     #perturbed samples
@@ -94,7 +102,7 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
         #print(f'Stein val shape: {stein_val.shape}')
         #print(f'H sample shape: {h_sample.shape}')
               
-        assert(stein_val.shape == h_sample.shape)
+        assert(stein_val.shape == h_sample.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
         assert(stein_val.device == h_sample.device)
 
         loss = torch.mean(( (stein_val - h_sample) - (stein_val_bar - h_sample_bar))**2)
@@ -107,7 +115,7 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
 
 
 #loss type is either 'grad' or 'diff'
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, network="MLP"):
+def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, network="MLP", return_learned = False):
     # Initialize distribution and MLP network
     if network == 'NormalizedMLP':
         net = normalizedMLP(n_dims=net_dims, n_out=net_dims)
@@ -133,4 +141,7 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
     est_moment = h(sample).detach() 
     est_moment -= stein_g(sample, trained_net, dist.log_prob).to(est_moment.device).detach()
     #print(f"Estimated moment for E[x**2] with {dist.__class__.__name__}: {abs(dist.second_moment() - est_moment.mean().item())}")
+
+    if return_learned:
+        return est_moment.mean().item(), trained_net 
     return est_moment.mean().item() #-abs(est_moment.mean().item() - dist.second_moment())
