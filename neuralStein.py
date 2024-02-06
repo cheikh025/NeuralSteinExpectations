@@ -57,7 +57,7 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
         #print(f'Stein val shape: {stein_val.shape}')
         #print(f'H sample shape: {h_sample.shape}')
 
-        assert(stein_val.shape == h_sample.shape), "Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
+        assert(stein_val.shape == h_sample.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
 
         grad_s = get_grad(stein_val.sum(), sample)
         grad_h = get_grad(h_sample.sum(), sample)

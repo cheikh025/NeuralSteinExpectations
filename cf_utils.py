@@ -84,7 +84,11 @@ class negative_log_marginal_lik_MRI_singledat(torch.nn.Module):
         distrib = torch.distributions.MultivariateNormal(torch.zeros(Y_batch.size()[0]).to(Y_batch.device), covariance_matrix=k_Yb.to(Y_batch.device))
         log_mll = 0.
         for j in range(self.Y_whole_tr.size()[1]):
-            log_mll += distrib.log_prob(Y_batch[:, j].squeeze())
+            #print(f"Y_batch[:,j] .shape is {Y_batch[:,j].shape}")
+            Y_j = Y_batch[:,j]
+            assert(Y_j.dim() == 1), "Y_j is [B,D] dimensional where D != 1"
+            #print(f"Y_j.shape is {Y_j.shape}")
+            log_mll += distrib.log_prob(Y_j)
 
         neg_log_mll = -1. * log_mll
         return neg_log_mll

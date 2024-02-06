@@ -26,9 +26,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 def generate_points(n_samples,dim, sample_range=(-5, 5)):
     return torch.rand(n_samples, dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
 
-s_lim = 0.1
-
-n_points = 100
+s_lim = 5
 
 def identity(x):
     return x.sum(-1)
@@ -36,7 +34,10 @@ def identity(x):
 def square(x):
     return (x**2)
 
-def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
+def square_sum(x):
+    return (x**2).sum(dim=-1).unsqueeze(-1)
+
+def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 100):
     """
      dist = Gaussian 
      h = square 
@@ -46,7 +47,7 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
 
-    h = square
+    h = square_sum
 
     unif_samples = generate_points(n_points, dim, sample_range=(-s_lim,s_lim)).to(device)
 
@@ -54,15 +55,14 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
     STD = 1.0
     true_moment = (MEAN**2 + STD**2)*dim
 
-    x_plot = torch.linspace(-5,5,500).to(device).reshape(-1, 1)
-    x_plot.requires_grad = True 
+
 
     # set up distribution, a Multivariate Gaussian
     for dim in [dim]:
         dist = MultivariateNormalDistribution(mean = (MEAN+torch.zeros(dim)).to(device),
                                               covariance=((STD**2)*torch.eye(dim)).to(device)
                                               ) 
-        true_samples = (MEAN + STD*torch.randn((n_points,))).to(device).reshape(-1, 1)
+        true_samples = (MEAN + STD*torch.randn((n_points,dim))).to(device)#.reshape(-1, 1)
         true_samples.requires_grad = True
 
         
@@ -112,6 +112,10 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
         
 
         if plot_true:
+            x_plot = torch.linspace(-5,5,500).to(device).reshape(-1, 1)
+
+            x_plot.requires_grad = True 
+            
             # evaluate on x plot 
             stein_preds_plot = stein_g(x_plot, net_nse, dist.log_prob)
 
@@ -170,9 +174,11 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
         
             plt.savefig("plots/interval_exp_g_plot_sample_range_{}.png".format(s_lim))
         
-        return cv_est, cv_on_sample_est,ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff
+        mc_est = h(true_samples).mean().item()
 
+        return mc_est, cv_est, cv_on_sample_est,ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff
 
+mc_ests = []
 cv_ests = []
 cv_off_train_on_ests = []
 cv_Tg_means = []
@@ -180,22 +186,35 @@ cv_on_sample_ests = []
 cf_ests = []
 stein_ests_grad = []
 stein_ests_diff = []
+dims = []
 
-exp_tag = 'dim1_gaussian_mu_{}_std_{}_range_{}_h_sqaured'.format(1, 1, s_lim)
+exp_tag = 'multiDim_gaussian_mu_{}_std_{}_range_{}_h_sqaured'.format(1, 1, s_lim)
 
-for trial_seed in [11,21,31,41,51, 61,71,81]:
-    cv_est, cv_on_sample_est, ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff = interval_exp(dim=1, device=device, seed = trial_seed, plot_true=False)
+dims = [1, 10, 100, 500, 1000]
+fixed_npoints = False #True
 
-    cv_ests.append(cv_est)
-    cv_off_train_on_ests.append(ncv_off_train_on_est)
-    cv_Tg_means.append(ncv_on_Tg_mean)
-    cv_on_sample_ests.append(cv_on_sample_est)
-    cf_ests.append(cf_est)
-    stein_ests_grad.append(stein_est)
-    stein_ests_diff.append(stein_est_diff)
+for dim in dims:
+    for trial_seed in [11]:
+        
+        if fixed_npoints:
+            n_points = 100
+        else:
+            n_points = max(2*dim, 100)
+
+        print("\n\n Dim: {}\n".format(dim))
+        mc_est, cv_est, cv_on_sample_est, ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff = interval_exp(dim=dim, device=device, seed = trial_seed, plot_true=False, n_points=n_points)
+
+        mc_ests.append(mc_est)
+        cv_ests.append(cv_est)
+        cv_off_train_on_ests.append(ncv_off_train_on_est)
+        cv_Tg_means.append(ncv_on_Tg_mean)
+        cv_on_sample_ests.append(cv_on_sample_est)
+        cf_ests.append(cf_est)
+        stein_ests_grad.append(stein_est)
+        stein_ests_diff.append(stein_est_diff)
 
 
-dataDict = {'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
+dataDict = {'Dim': dims, 'MC': mc_ests, 'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
 
 df = pd.DataFrame(dataDict)
 df.to_csv('./results/{}.csv'.format(exp_tag))
@@ -203,7 +222,17 @@ df.to_csv('./results/{}.csv'.format(exp_tag))
 
 plt.rcParams.update({'axes.titlesize': 20})
 
+plt.figure(figsize=(20,10))
+plt.plot(dims, mc_ests, label = "MC")
+plt.plot(dims, cv_ests, label = "CV")
+plt.plot(dims, cv_off_train_on_ests, label = "CV OffTrain OnEst")
+plt.plot(dims, cv_on_sample_ests, label = "CV OnSample")
+plt.plot(dims, cf_ests, label = "CF")
+plt.plot(dims, stein_ests_grad, label = "Stein Grad")
+plt.plot(dims, stein_ests_diff, label = "Stein Est Diff")
+plt.legend(loc='best')
+
 # make boxplot for different methods, to illustrate variance
-ax = df.plot(kind='box', title='Estimates of E[X^2] for N(1, 1^2), True Val = 2.', showmeans=True, figsize=(20,10), fontsize=20)
+#ax = df.plot(kind='box', title='Estimates of E[X^2] for N(1, 1^2), True Val = 2.', showmeans=True, figsize=(20,10), fontsize=20)
 
 plt.savefig('./plots/{}.png'.format(exp_tag))
