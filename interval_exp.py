@@ -20,13 +20,14 @@ torch.cuda.manual_seed(123)
 
 # Set the aesthetic style of the plots
 sns.set(style="whitegrid", palette="pastel")
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def generate_points(n_samples,dim, sample_range=(-5, 5)):
     return torch.rand(n_samples, dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
 
-s_lim = 0.1
+s_lim = 5
+mb_size = 50
 
 n_points = 100
 
@@ -69,16 +70,16 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
         # Evaluate Stein Expectation
         stein_est, net_nse = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
                                                         loss_type="grad", epochs=500,
-                                                         given_sample = unif_samples, return_learned=True)
+                                                         given_sample = unif_samples, return_learned=True, mb_size = mb_size)
         
         # Evaluate Stein Expectation
         stein_est_diff, net_nse_diff = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
                                                         loss_type="diff", epochs=500,
-                                                         given_sample = unif_samples, return_learned=True)
+                                                         given_sample = unif_samples, return_learned=True, mb_size = mb_size)
         
         # evaluate neural CV expectation 
         cv_est, net_ncv ,c_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, epochs=500, 
-                                                           given_sample=unif_samples, return_learned=True)
+                                                           given_sample=unif_samples, return_learned=True, mb_size = mb_size)
         
         # use network trained on off-samples, but estimate expectation on true samples
         # should give better estimate than just cv_est
@@ -90,7 +91,7 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False):
 
         # evaluate neural CV expectation 
         cv_on_sample_est, net_on_sample_ncv, c_on_sample_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=500, 
-                                                                                         given_sample = true_samples, return_learned=True)
+                                                                                         given_sample = true_samples, return_learned=True, mb_size = mb_size)
 
         
 
@@ -181,7 +182,7 @@ cf_ests = []
 stein_ests_grad = []
 stein_ests_diff = []
 
-exp_tag = 'dim1_gaussian_mu_{}_std_{}_range_{}_h_sqaured'.format(1, 1, s_lim)
+exp_tag = 'dim1_gaussian_mu_{}_std_{}_range_{}_h_sqaured_mb_size_{}'.format(1, 1, s_lim, mb_size)
 
 for trial_seed in [11,21,31,41,51, 61,71,81]:
     cv_est, cv_on_sample_est, ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff = interval_exp(dim=1, device=device, seed = trial_seed, plot_true=False)

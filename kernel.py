@@ -9,7 +9,7 @@ Kernel classes (for use with Control Functional)
 
 # from https://github.com/jz-fun/Meta_Control_Variates/blob/main/CF/base_kernels.py
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class rbf_kernel(object):

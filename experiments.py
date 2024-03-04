@@ -9,7 +9,7 @@ import pandas as pd
 import seaborn as sns
 # Set the aesthetic style of the plots
 sns.set(style="whitegrid", palette="pastel")
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def square(x):
             return (x**2).sum(-1)

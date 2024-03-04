@@ -5,7 +5,7 @@ from utils import *
 from network import MLP, normalizedMLP
 from tqdm import tqdm
 
-#device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def stein_g(x, g, logp):
     device = x.device
@@ -38,7 +38,8 @@ def stein_g_precomputed_score(x, g, score_x):
     
     return stein_val_batches
 
-def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True):
+# mb_size = None means no minibatching/full batch 
+def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None):
     device = sample.device
     
     sample = sample.to(device)
@@ -49,30 +50,51 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
 
     #logp_sample = target_dist.log_prob(sample)
 
+    # data minibatches
+    # full batch 
+    if mb_size is None:
+        batch_idx = torch.arange(0,sample.size(0)).long()
+        mb_size = sample.size(0)
+    else:
+        print("**Minibatches with batch size: ", mb_size)
+        batch_idx = torch.randperm(sample.size(0))
+
     for e in tqdm(range(epochs), desc='Training '):
-        optimizer.zero_grad()
+        epoch_loss = 0.
 
-        stein_val = stein_g(sample, net, target_dist.log_prob)
+        # over minibatches
+        for b_num in range(0, sample.size(0), mb_size):
+            idx = batch_idx[b_num: b_num + mb_size]
+            sample_mb = sample[idx, :]
+            h_sample_mb = h_sample[idx]
 
-        #print(f'Stein val shape: {stein_val.shape}')
-        #print(f'H sample shape: {h_sample.shape}')
+            optimizer.zero_grad()
 
-        assert(stein_val.shape == h_sample.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
+            stein_val = stein_g(sample_mb, net, target_dist.log_prob)
 
-        grad_s = get_grad(stein_val.sum(), sample)
-        grad_h = get_grad(h_sample.sum(), sample)
+            #print(f'Stein val shape: {stein_val.shape}')
+            #print(f'H sample shape: {h_sample.shape}')
+
+            assert(stein_val.shape == h_sample_mb.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
+
+            grad_s = get_grad(stein_val.sum(), sample_mb)
+            grad_h = get_grad(h(sample_mb).sum(), sample_mb) # NOTE: preferably uses precomputed h_sample_mb, look into improving
         
-        assert(grad_s.shape == grad_h.shape)
+            assert(grad_s.shape == grad_h.shape)
 
-        loss = torch.sum((grad_s - grad_h)**2)
-        loss.backward()
-        optimizer.step()
+            loss = torch.sum((grad_s - grad_h)**2)
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()/sample.size(0)
+
         if verbose:
             if e % 100 == 0:  
-                print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
+                print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
     return net
 
-def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True):
+# mb_size = None means no minibatching/full batch 
+def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None):
     device = sample.device
     
     sample = sample.to(device)
@@ -93,34 +115,65 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
     logp_sample_bar = target_dist.log_prob(sample_bar)
     score_sample_bar = get_grad(logp_sample_bar.sum(), sample_bar).detach()
 
+    # data minibatches
+    # full batch 
+    if mb_size is None:
+        batch_idx = torch.arange(0,sample.size(0)).long()
+        mb_size = sample.size(0) 
+    else:
+        print("**Minibatches with batch size: ", mb_size)
+        batch_idx = torch.randperm(sample.size(0))
+
     for e in tqdm(range(epochs), desc='Training '):
-        optimizer.zero_grad()
+        epoch_loss = 0.
 
-        stein_val = stein_g_precomputed_score(sample, net, score_sample)
-        stein_val_bar = stein_g_precomputed_score(sample_bar, net, score_sample_bar)
+        for b_num in range(0, sample.size(0), mb_size):
+            idx = batch_idx[b_num: b_num + mb_size]
 
-        #print(f'Stein val shape: {stein_val.shape}')
-        #print(f'H sample shape: {h_sample.shape}')
+            # get minibatch vals
+            sample_mb = sample[idx, :]
+            sample_bar_mb = sample_bar[idx,:]
+
+            h_sample_mb = h_sample[idx]
+            h_sample_bar_mb = h_sample_bar[idx]
+
+            score_sample_mb = score_sample[idx,:]
+            score_sample_bar_mb = score_sample_bar[idx,:]
+
+            # loss and training             
+            optimizer.zero_grad()
+
+            stein_val = stein_g_precomputed_score(sample_mb, net, score_sample_mb)
+            stein_val_bar = stein_g_precomputed_score(sample_bar_mb, net, score_sample_bar_mb)
+
+            #print(f'Stein val shape: {stein_val.shape}')
+            #print(f'H sample shape: {h_sample.shape}')
               
-        assert(stein_val.shape == h_sample.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
-        assert(stein_val.device == h_sample.device)
+            assert(stein_val.shape == h_sample_mb.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample_mb.shape}"
+            assert(stein_val.device == h_sample_mb.device)
 
-        loss = torch.mean(( (stein_val - h_sample) - (stein_val_bar - h_sample_bar))**2)
-        loss.backward()
-        optimizer.step()
+            loss = torch.mean(( (stein_val - h_sample_mb) - (stein_val_bar - h_sample_bar_mb))**2)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()/sample.size(0)
+            
         if verbose:
             if e % 100 == 0:  
-                print(f'Epoch [{e}/{epochs}], Loss: {loss.item()}')
+                print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
     return net
 
 
 #loss type is either 'grad' or 'diff'
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, network="MLP", return_learned = False):
+def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, network="MLP", return_learned = False, mb_size = None):
     # Initialize distribution and MLP network
     if network == 'NormalizedMLP':
         net = normalizedMLP(n_dims=net_dims, n_out=net_dims)
     else :
         net = MLP(n_dims=net_dims, n_out=net_dims)
+    
+    net = torch.nn.DataParallel(net)
+    
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
     
     if given_sample is None:
@@ -134,9 +187,9 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
 
     # Train the network and estimate the moment
     if loss_type == "grad":
-        trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True)
+        trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
     elif loss_type == "diff":
-        trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True)
+        trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
 
     est_moment = h(sample).detach() 
     est_moment -= stein_g(sample, trained_net, dist.log_prob).to(est_moment.device).detach()

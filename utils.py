@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from distributions import *
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def get_grad(output, input):
     """Compute the gradient of 'output' with respect to 'input'."""
     return torch.autograd.grad(outputs=output, inputs=input,

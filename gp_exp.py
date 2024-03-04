@@ -15,7 +15,7 @@ from control_functional import *
 
 # Set the aesthetic style of the plots
 sns.set(style="whitegrid", palette="pastel")
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 # GP Kernel

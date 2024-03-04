@@ -19,14 +19,15 @@ torch.manual_seed(123)
 torch.cuda.manual_seed(123)
 
 # Set the aesthetic style of the plots
-sns.set(style="whitegrid", palette="pastel")
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+#sns.set(style="whitegrid", palette="pastel")
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def generate_points(n_samples,dim, sample_range=(-5, 5)):
     return torch.rand(n_samples, dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
 
 s_lim = 5
+mb_size = 100
 
 def identity(x):
     return x.sum(-1)
@@ -69,16 +70,16 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
         # Evaluate Stein Expectation
         stein_est, net_nse = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
                                                         loss_type="grad", epochs=500,
-                                                         given_sample = unif_samples, return_learned=True)
+                                                         given_sample = unif_samples, return_learned=True, mb_size = mb_size)
         
         # Evaluate Stein Expectation
         stein_est_diff, net_nse_diff = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
                                                         loss_type="diff", epochs=500,
-                                                         given_sample = unif_samples, return_learned=True)
+                                                         given_sample = unif_samples, return_learned=True, mb_size = mb_size)
         
         # evaluate neural CV expectation 
         cv_est, net_ncv ,c_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, epochs=500, 
-                                                           given_sample=unif_samples, return_learned=True)
+                                                           given_sample=unif_samples, return_learned=True, mb_size = mb_size)
         
         # use network trained on off-samples, but estimate expectation on true samples
         # should give better estimate than just cv_est
@@ -90,18 +91,18 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
 
         # evaluate neural CV expectation 
         cv_on_sample_est, net_on_sample_ncv, c_on_sample_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=500, 
-                                                                                         given_sample = true_samples, return_learned=True)
+                                                                                         given_sample = true_samples, return_learned=True, mb_size = mb_size)
 
         
 
         # evaluate CF expectation 
         
-        cf_est, cf_obj = evaluate_cf_expectation(dist = dist, sample_range=(-s_lim,s_lim), 
-                                n_samples= n_points, h = h, 
-                                reg = 0., given_sample = unif_samples, 
-                                tune_kernel_params = True, return_learned= True)
-        print("CF est: ", cf_est)
-        
+        #cf_est, cf_obj = evaluate_cf_expectation(dist = dist, sample_range=(-s_lim,s_lim), 
+        #                        n_samples= n_points, h = h, 
+        #                        reg = 0., given_sample = unif_samples, 
+        #                        tune_kernel_params = True, return_learned= True)
+        #print("CF est: ", cf_est)
+        cf_est = 0.
         
         print("Stein est: ", stein_est)
         print("CV est (off sample): {}, CV off train on Est: {}, CV Tg On Sample Mean: {}".format(cv_est, ncv_off_train_on_est, ncv_on_Tg_mean))
@@ -186,11 +187,12 @@ cv_on_sample_ests = []
 cf_ests = []
 stein_ests_grad = []
 stein_ests_diff = []
-dims = []
+true_moments = []
 
-exp_tag = 'multiDim_gaussian_mu_{}_std_{}_range_{}_h_sqaured'.format(1, 1, s_lim)
+exp_tag = 'multiDim_gaussian_mu_{}_std_{}_range_{}_h_sqaured_mb_size_{}'.format(1, 1, s_lim, mb_size)
 
-dims = [1, 10, 100, 500, 1000]
+dims = [500, 750, 1000]
+cur_dims = []
 fixed_npoints = False #True
 
 for dim in dims:
@@ -199,7 +201,7 @@ for dim in dims:
         if fixed_npoints:
             n_points = 100
         else:
-            n_points = max(2*dim, 100)
+            n_points = max(100*int(dim/10), 100)
 
         print("\n\n Dim: {}\n".format(dim))
         mc_est, cv_est, cv_on_sample_est, ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff = interval_exp(dim=dim, device=device, seed = trial_seed, plot_true=False, n_points=n_points)
@@ -212,27 +214,36 @@ for dim in dims:
         cf_ests.append(cf_est)
         stein_ests_grad.append(stein_est)
         stein_ests_diff.append(stein_est_diff)
+        true_moments.append(dim*2.)
+
+        cur_dims.append(dim)
+
+        # save intermediates
+        dataDict = {'Dim': cur_dims, 'True': true_moments, 'MC': mc_ests, 'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
+        df = pd.DataFrame(dataDict)
+        df.to_csv('./results/{}_500_on.csv'.format(exp_tag))
 
 
-dataDict = {'Dim': dims, 'MC': mc_ests, 'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
+
+dataDict = {'Dim': dims, 'True': true_moments, 'MC': mc_ests, 'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
 
 df = pd.DataFrame(dataDict)
 df.to_csv('./results/{}.csv'.format(exp_tag))
 
-
 plt.rcParams.update({'axes.titlesize': 20})
 
 plt.figure(figsize=(20,10))
-plt.plot(dims, mc_ests, label = "MC")
-plt.plot(dims, cv_ests, label = "CV")
-plt.plot(dims, cv_off_train_on_ests, label = "CV OffTrain OnEst")
-plt.plot(dims, cv_on_sample_ests, label = "CV OnSample")
-plt.plot(dims, cf_ests, label = "CF")
-plt.plot(dims, stein_ests_grad, label = "Stein Grad")
-plt.plot(dims, stein_ests_diff, label = "Stein Est Diff")
+plt.plot(dims, true_moments, label = "True", color='k', marker='o')
+plt.plot(dims, mc_ests, label = "MC", marker='o')
+plt.plot(dims, cv_ests, label = "CV", marker='o')
+plt.plot(dims, cv_off_train_on_ests, label = "CV OffTrain OnEst", marker='o')
+plt.plot(dims, cv_on_sample_ests, label = "CV OnSample", marker='o')
+plt.plot(dims, cf_ests, label = "CF", marker='o')
+plt.plot(dims, stein_ests_grad, label = "Stein Grad", marker='o')
+plt.plot(dims, stein_ests_diff, label = "Stein Est Diff", marker='o')
 plt.legend(loc='best')
 
 # make boxplot for different methods, to illustrate variance
 #ax = df.plot(kind='box', title='Estimates of E[X^2] for N(1, 1^2), True Val = 2.', showmeans=True, figsize=(20,10), fontsize=20)
 
-plt.savefig('./plots/{}.png'.format(exp_tag))
+plt.savefig('./plots/{}_500_on.png'.format(exp_tag))
