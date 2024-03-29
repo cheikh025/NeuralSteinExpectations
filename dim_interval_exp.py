@@ -68,16 +68,19 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
 
         
         # Evaluate Stein Expectation
-        stein_est, net_nse = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
-                                                        loss_type="grad", epochs=500,
-                                                         given_sample = unif_samples, return_learned=True, mb_size = mb_size)
-        
+        #stein_est, net_nse = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
+        #                                                loss_type="grad", epochs=500,
+        #                                                 given_sample = unif_samples, return_learned=True, mb_size = mb_size)
+        stein_est = -1.0
+
         # Evaluate Stein Expectation
+        print("\n Stein Diff Experiment:")
         stein_est_diff, net_nse_diff = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
                                                         loss_type="diff", epochs=500,
                                                          given_sample = unif_samples, return_learned=True, mb_size = mb_size)
         
-        # evaluate neural CV expectation 
+        # evaluate neural CV expectation
+        print("\n NCV (off sample) Experiment:") 
         cv_est, net_ncv ,c_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, epochs=500, 
                                                            given_sample=unif_samples, return_learned=True, mb_size = mb_size)
         
@@ -90,10 +93,14 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
 
 
         # evaluate neural CV expectation 
+        print("\n NCV (on sample) Experiment:")
         cv_on_sample_est, net_on_sample_ncv, c_on_sample_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=500, 
                                                                                          given_sample = true_samples, return_learned=True, mb_size = mb_size)
 
-        
+        # evaluate var grad objective
+        print("\n VarGrad (modification of NCV) Experiment (off sample): ")
+        var_grad_est, net_var_grad = evaluate_varg_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=500, 
+                                                                           given_sample = unif_samples, return_learned=True, mb_size = mb_size, perturb_samples = False)
 
         # evaluate CF expectation 
         
@@ -104,10 +111,10 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
         #print("CF est: ", cf_est)
         cf_est = 0.
         
-        print("Stein est: ", stein_est)
+        print("\nStein (diff) est: ", stein_est_diff)
         print("CV est (off sample): {}, CV off train on Est: {}, CV Tg On Sample Mean: {}".format(cv_est, ncv_off_train_on_est, ncv_on_Tg_mean))
         print("CV estimate (on sample): ", cv_on_sample_est)
-        
+        print("VarGrad est: ", var_grad_est)
         
         print("True moment: ", true_moment) 
         
@@ -118,7 +125,7 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
             x_plot.requires_grad = True 
             
             # evaluate on x plot 
-            stein_preds_plot = stein_g(x_plot, net_nse, dist.log_prob)
+            stein_preds_plot = stein_g(x_plot, net_nse_diff, dist.log_prob)
 
             cv_est_plot = stein_g(x_plot, net_ncv, dist.log_prob)
             cv_on_sample_est_plot = stein_g(x_plot, net_on_sample_ncv, dist.log_prob)
@@ -165,7 +172,7 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
             plt.figure(figsize = (10, 10))
             plt.ylim(-5,5)
             plt.plot(x_plot_np, true_soln(x_plot_np), label = "True g(x) soln = -x-1.", color='k')
-            plt.plot(x_plot_np, net_nse(x_plot).detach().cpu().numpy(), label = "Ours g(x)")
+            plt.plot(x_plot_np, net_nse_diff(x_plot).detach().cpu().numpy(), label = "Ours g(x)")
             plt.plot(x_plot_np, net_ncv(x_plot).detach().cpu().numpy(), label = "NCV g(x)")
             plt.plot(x_plot_np, net_on_sample_ncv(x_plot).detach().cpu().numpy(), label = "NCV, trained on target samples g(x)")
             plt.plot(x_plot_np, true_soln_c(x_plot_np, c_ncv), label = "Soln with c = {:.3f}".format(c_ncv), color='k', linestyle='--')
@@ -191,7 +198,7 @@ true_moments = []
 
 exp_tag = 'multiDim_gaussian_mu_{}_std_{}_range_{}_h_sqaured_mb_size_{}'.format(1, 1, s_lim, mb_size)
 
-dims = [500, 750, 1000]
+dims = [50] #500, 750, 1000]
 cur_dims = []
 fixed_npoints = False #True
 
@@ -199,9 +206,12 @@ for dim in dims:
     for trial_seed in [11]:
         
         if fixed_npoints:
-            n_points = 100
+            n_points = 1000
         else:
-            n_points = max(100*int(dim/10), 100)
+            n_points = max(1000*int(dim/10), 100)
+        
+        # TODO: delete this line later
+        mb_size = n_points
 
         print("\n\n Dim: {}\n".format(dim))
         mc_est, cv_est, cv_on_sample_est, ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff = interval_exp(dim=dim, device=device, seed = trial_seed, plot_true=False, n_points=n_points)

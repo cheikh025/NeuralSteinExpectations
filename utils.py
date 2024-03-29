@@ -121,3 +121,9 @@ def expectation_sum_of_squares_normal(mean, covariance):
     variances = torch.diag(covariance) 
     mean_squares = mean ** 2  
     return torch.sum(variances + mean_squares).item()
+
+def get_grad_norm(net):
+    grad_norm = 0.
+    for p in net.parameters():
+        grad_norm += p.grad.norm(2).item()**2
+    return grad_norm**0.5
