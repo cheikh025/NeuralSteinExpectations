@@ -1,12 +1,18 @@
-from distributions import *
-from utils import *
-from ToyDistributions import *
 import torch
-from neuralStein import *
-from LangevinSampler import *
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from distributions import *
+from utils import *
+from ToyDistributions import *
+from neural_CV import *
+from control_functional import *
+from neuralStein import *
+from LangevinSampler import *
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -32,26 +38,40 @@ DIMS = [1,2,3,5,15,20,25,30,50]
 SEED = [1,3,42,25]
 MEAN = 3
 STD = np.sqrt(5)
+sample_range = (-10,10)
+epochs = 1000
+n_samples = 300
+
 
 Data = {'dim': [], 'seed': [], 'true_val': [], 'stein_est_diff': [], 
-        'stein_est_grad': [], 'Langevin': [], 'HMC': []}
+        'stein_est_grad': [], 'Langevin': [], 'HMC': [], 'CF': [], 'NCV': []}
+
 for dim in DIMS:
     for seed in SEED:
         print(f"dim: {dim}, seed: {seed}, True Val: {dim*(MEAN**2 + STD**2)}")
         torch.manual_seed(seed)
         dist = MultivariateNormalDistribution(mean=MEAN*torch.ones(dim).to(device), 
                                             covariance=(STD**2)*torch.eye(dim).to(device))
-        LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=100, 
+        LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
                                 num_chains=1024, device=device)
         print(f"\t Langevin est: {LMC_est.item()}")
-        HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=100, 
+        HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
                            num_chains=1024, device=device)
         print(f"\t HMC est: {HMC_est}")
-        stein_est_grad = evaluate_stein_expectation(dist, dim, (-10,10), 300, h = h, 
-                                                    epochs=1000, loss_type = "grad")
+        stein_est_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, 
+                                                    epochs=epochs, loss_type = "grad")
         print(f"\t Stein est grad: {stein_est_grad}")
-        stein_est_diff = evaluate_stein_expectation(dist, dim, (-10,10), 300, h = h,
-                                                    epochs=1000, loss_type = "diff")
+        stein_est_diff = evaluate_stein_expectation(dist, dim, sample_range,
+                                                    n_samples, h = h, epochs=epochs, loss_type = "diff")
+        print(f"\t Stein est diff: {stein_est_diff}")
+        cf_est, cf_obj = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
+                                n_samples= n_samples, h = h,
+                                reg=0., given_sample = None,
+                                tune_kernel_params = True, return_learned= True)
+        print(f"\t CF est: {cf_est}")
+        ncv_est = evaluate_ncv_expectation(dist, dim, sample_range, n_samples, h, epochs=1000, reg = 0.)
+        print(f"\t NCV est: {ncv_est}")
+
         print(f"\t Stein est diff: {stein_est_diff}")
         Data['dim'].append(dim)
         Data['seed'].append(seed)
@@ -60,11 +80,13 @@ for dim in DIMS:
         Data['HMC'].append(HMC_est)
         Data['stein_est_diff'].append(stein_est_diff)
         Data['stein_est_grad'].append(stein_est_grad)
+        Data['CF'].append(cf_est)
+        Data['NCV'].append(ncv_est)
 
 df = pd.DataFrame(Data)
 df.to_csv("MVN_exp.csv")
 Rsquared = {}
-for method in ['Langevin', 'HMC', 'stein_est_diff', 'stein_est_grad']:
+for method in ['Langevin', 'HMC', 'stein_est_diff', 'stein_est_grad', 'CF', 'NCV']:
     Rsquared[method] = compute_Rsquared(df['true_val'], df[method])
 
 plt.figure()
