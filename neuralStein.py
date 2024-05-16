@@ -39,6 +39,9 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
     # precompute h(sample) and logp(sample)
     h_sample = h(sample)
 
+    # precompute grad_h
+    grad_h = get_grad(h(sample).sum(), sample).detach()
+
     #logp_sample = target_dist.log_prob(sample)
 
     # data minibatches
@@ -69,11 +72,12 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
             assert(stein_val.shape == h_sample_mb.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
 
             grad_s = get_grad(stein_val.sum(), sample_mb)
-            grad_h = get_grad(h(sample_mb).sum(), sample_mb) # NOTE: preferably uses precomputed h_sample_mb, look into improving
+            grad_h_mb = grad_h[idx, :]
+            #grad_h = get_grad(h(sample_mb).sum(), sample_mb) # NOTE: preferably uses precomputed h_sample_mb, look into improving
         
-            assert(grad_s.shape == grad_h.shape)
+            assert(grad_s.shape == grad_h_mb.shape)
 
-            loss = torch.sum((grad_s - grad_h)**2)
+            loss = torch.sum((grad_s - grad_h_mb)**2)
             loss.backward()
             optimizer.step()
             
@@ -225,11 +229,14 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
     else :
         net = MLP(n_dims=net_dims, n_out=net_dims)
     
-    net = torch.nn.DataParallel(net)
+    net = net
     net = net.to(device)
     
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
-    
+    if loss_type == "grad":
+        optimizer = torch.optim.Adam(net.parameters(), lr=1e-2)
+    else:
+        optimizer = torch.optim.Adam(net.parameters(), lr=1e-2)
+
     if given_sample is None:
         #   Generate and prepare sample data
         sample = dist.generate_points(n_samples, sample_range).to(device)
