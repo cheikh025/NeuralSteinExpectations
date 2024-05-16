@@ -1,1 +1,2 @@
-torcheqdiff
+bayesian-optimization
+git+https://github.com/AdamCobb/hamiltorch

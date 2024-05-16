@@ -61,6 +61,10 @@ class negative_log_marginal_lik_MRI_singledat(torch.nn.Module):
         kernel_obj.base_kernel_parm2 = self.base_kernel_parm2
 
         X_batch = self.X_whole_tr[batch_sample_indices, :]
+        #Y_batch = self.Y_whole_tr[batch_sample_indices, :].to(X_batch.device)
+        if self.Y_whole_tr.dim() == 1:
+            #unsqueeze the tensor to make it 2D
+          self.Y_whole_tr = self.Y_whole_tr.unsqueeze(dim=1)
         Y_batch = self.Y_whole_tr[batch_sample_indices, :].to(X_batch.device)
         
         score_batch = self.score_tensor_X_whole_tr[batch_sample_indices, :].to(X_batch.device)
