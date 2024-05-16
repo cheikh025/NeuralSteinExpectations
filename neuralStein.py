@@ -17,7 +17,7 @@ def stein_g(x, g, logp):
     stein_val_batches = score_critic_dot + trace_j_critic
     
     # for 1d input, unpad to [N, 1]
-    if len(stein_val_batches.shape) == 1:
+    if x.shape[-1] == 1:
         return stein_val_batches.unsqueeze(1) 
 
     return stein_val_batches
@@ -28,7 +28,7 @@ def stein_g_precomputed_score(x, g, score_x):
     score_critic_dot = (gx * score_x).sum(-1)
     stein_val_batches = score_critic_dot + trace_j_critic
     
-    if len(stein_val_batches.shape) == 1:
+    if x.shape[-1] == 1:
         return stein_val_batches.unsqueeze(1) 
     
     return stein_val_batches
