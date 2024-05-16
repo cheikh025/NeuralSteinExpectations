@@ -87,8 +87,8 @@ Xprime = X_sub[subsub_idces].to(device)
 
 # Set the testing point which indexes the integrand
 # idx of target point, we treat ystar as an unbiased estimator for predictive mean at xstar
-idx = 23
-xstar = X[idx].squeeze().unsqueeze(0).to(device) # (1, d)
+idx = 2
+xstar = X[idx].squeeze().unsqueeze(0).to(device) # (1, d) (d=27 here - d for SARCOS dataset)
 ystar = y[idx].squeeze().to(device)
 
 # h(x) for this problem, we want to estimate the expectation of h(x) wrt the posterior
@@ -103,7 +103,14 @@ def integrand(eta):
         K_Nprime_N = base_kernel(Xprime, X_sub, theta[i])
         K_N_Nprime = K_Nprime_N.t()
         sigma = 0.1
-        f_vals[i,:] = (K_star_Nprime @ torch.inverse(K_Nprime_N @ K_N_Nprime + sigma**2 * K_Nprime) @ (K_Nprime_N @ y_sub)).squeeze()
+
+        # ALT 1 - use solve to compute inverse * vector product
+        tmp_val = torch.linalg.solve(A = (K_Nprime_N @ K_N_Nprime + sigma**2 * K_Nprime),  B = (K_Nprime_N @ y_sub))
+        f_vals[i, :] = (K_star_Nprime @ tmp_val).squeeze() 
+       
+
+        # ALT 2 - maybe computing inverse like this directly is more expensive
+        #f_vals[i,:] = (K_star_Nprime @ torch.inverse(K_Nprime_N @ K_N_Nprime + sigma**2 * K_Nprime) @ (K_Nprime_N @ y_sub)).squeeze()
     return f_vals
 
 def integrand_mean(eta):
@@ -116,55 +123,76 @@ def integrand_mean(eta):
 # target dist 
 dist = MultivariateNormalDistribution(mean = post_mean_etaparms, covariance = post_cov_etaparms)
 
-"""
+
+n_sample = 1024 #1024
+n_epoch = 1500
+
+
+# set seeds
+torch.manual_seed(12)
+np.random.seed(12)
+
+f_vals_true_samples = integrand(post_samples).detach().cpu().numpy()
+print("h(true samples eta): ", f_vals_true_samples)
+post_samples_est = f_vals_true_samples.mean()
+
+off_samples = dist.generate_points(n_sample, (0,2)).to(device)
+off_samples_est = integrand(off_samples).mean().item()
+
 # the training mesh is uniformly sampled from hypercube [-10, 10]^dim, n_samples total
 stein_est = evaluate_stein_expectation(dist, 
                            dim,
                            sample_range= (0,2), 
-                           n_samples = 1024, 
+                           n_samples = n_sample, 
                            h =integrand,
-                           epochs=1000,
+                           epochs=n_epoch,
                            loss_type = "diff")
+print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein estimate diff: {stein_est}, Diff: {np.abs(stein_est - post_samples_est)}')
 
 stein_est_given_samples = evaluate_stein_expectation(dist, 
                            dim,
                            sample_range= (0,2), 
-                           n_samples = 1024, 
+                           n_samples = n_sample, 
                            h =integrand,
-                           epochs=1000,
+                           epochs=n_epoch,
                            loss_type = "diff",
-                           given_sample = post_samples[:1024].to(device))
+                           given_sample = post_samples[:n_sample].to(device))
+print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein estimate diff (using ON-samples): {stein_est_given_samples}, Diff: {np.abs(stein_est_given_samples - post_samples_est)}')
 
-#stein_est_grad = evaluate_stein_expectation(dist, 
-#                           dim,
-#                           sample_range= (0,2), 
-#                           n_samples = 1024, 
-#                           h =integrand,
-#                           epochs=1000,
-#                           loss_type = "grad")
+stein_est_grad = evaluate_stein_expectation(dist, 
+                           dim,
+                           sample_range= (0,2), 
+                           n_samples = n_sample, 
+                           h =integrand,
+                           epochs=n_epoch,
+                           loss_type = "grad")
+print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein Est Grad: {stein_est_grad}, Diff: {np.abs(stein_est_grad - post_samples_est)}')
 
 # compare to NCV
 ncv_est_given_samples = evaluate_ncv_expectation(dist, 
                            dim,
                            sample_range= (0,2), 
-                           n_samples = 1024, 
+                           n_samples = n_sample, 
                            h =integrand,
-                           epochs=1000,
-                           given_sample = post_samples[:1024].to(device))  
+                           epochs=n_epoch,
+                           given_sample = post_samples[:n_sample].to(device))  
+print(f'NCV on sample: ', ncv_est_given_samples)
 
 ncv_est = evaluate_ncv_expectation(dist, 
                            dim,
                            sample_range= (0,2), 
-                           n_samples = 1024, 
+                           n_samples = n_sample, 
                            h =integrand,
-                           epochs=1000)               
-"""
+                           epochs=n_epoch)               
+
+
+print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}, NCV estimate (using off-samples): {ncv_est}, Diff: {np.abs(ncv_est - post_samples_est)}')
 
 # Control Functional
-cf_est, cf_obj = evaluate_cf_expectation(dist = dist, sample_range=(0,2),
-                                n_samples= 1024, h = integrand,
-                                reg=0., given_sample = None,
-                                tune_kernel_params = True, return_learned= True)
+#cf_est, cf_obj = evaluate_cf_expectation(dist = dist, sample_range=(0,2),
+#                                n_samples= n_sample, h = integrand,
+#                                reg=0., given_sample = None,
+#                                tune_kernel_params = True, return_learned= True)
 
 # compare to Langevin and HMC
 #eval_Langevin(dist = dist, dim = dim, h=integrand, num_samples=10, num_chains=100)
@@ -175,15 +203,31 @@ f_vals_true_samples = integrand(post_samples).detach().cpu().numpy()
 print("h(true samples eta): ", f_vals_true_samples)
 post_samples_est = f_vals_true_samples.mean()
 
+diff_stein_diff = np.abs(stein_est - post_samples_est)
+print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein estimate diff: {stein_est}, Diff: {np.abs(stein_est - post_samples_est)}')
 
-#print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein estimate diff: {stein_est}')
+diff_stein_grad = np.abs(stein_est_grad - post_samples_est)
+print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein Est Grad: {stein_est_grad}, Diff: {np.abs(stein_est_grad - post_samples_est)}')
 
-#print(f'Analytic true moment: {ystar}, True Sampled est: {post_samples_est}, Stein estimate diff: {stein_est}. Stein Est Grad: {stein_est_grad}')
+diff_ncv = np.abs(ncv_est - post_samples_est)
+print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}, NCV estimate (using off-samples): {ncv_est}, Diff: {np.abs(ncv_est - post_samples_est)}, Off sample est: {off_samples_est}')
+print(f'NCV on sample: ', ncv_est_given_samples)
 
-#print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}, NCV estimate (using off-samples): {ncv_est}')
+# save gp results to csv file
+# load existing gp results file
+res_name = 'gp_results_samples_{}_epochs_{}.csv'.format(n_sample, n_epoch)
+try:
+    df = pd.read_csv('./results/GP_Results/{}'.format(res_name))
+except:
+    df = pd.DataFrame()
+
+results_dict = {'xstar_idx': idx,'ystar': ystar.item(), 'post_samples_est': post_samples_est, 'unif(0,2)_off sample_est': off_samples_est, 'stein_est_diff': stein_est, 'stein_est_grad': stein_est_grad, 'ncv_est': ncv_est, 'ncv_on_sample_est': ncv_est_given_samples, 'diff_stein_diff': diff_stein_diff, 'diff_stein_grad': diff_stein_grad, 'diff_ncv': diff_ncv}
+results = pd.DataFrame([results_dict])
+df = pd.concat([df, results])
+df.to_csv('./results/GP_Results/{}'.format(res_name), index=False)
 
 #print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est}')
 
 
 #print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n NCV estimate (true samples): {ncv_est_given_samples}, NCV estimate (using off-samples): {ncv_est} \n Stein estimate (true samples): {stein_est_given_samples}, Stein estimate (using off-samples): {stein_est}')
-print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n CF estimate: {cf_est}')
+#print(f'Analytic true moment: {ystar}, MC Sampled est: {post_samples_est} \n CF estimate: {cf_est}')

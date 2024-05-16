@@ -57,6 +57,12 @@ class Simplied_CF(object):
         kernel_obj = self.prior_kernel(base_kernel=self.base_kernel)  # instantialized the class
         kernel_obj.base_kernel_parm1 = self.optim_base_kernel_parms[0]
         kernel_obj.base_kernel_parm2 = self.optim_base_kernel_parms[1]
+        
+        #for memory debugging
+        #print("(Z) X_te.shape: ", X_te.size())
+        #print("(X) X_train.shape: ", self.X_train.size())
+
+        
         k_ZX =  kernel_obj.cal_stein_base_kernel(X_te, self.X_train, score_tensor, self.score_tensor)
         print("k_ZX calculated")
 
@@ -69,9 +75,12 @@ class Simplied_CF(object):
 
         k_XX_inv = (k_XX + 0.001 * torch.eye(m, device = device)).inverse() 
         
-        o  = (torch.ones(1, m, device = device )  @ k_XX_inv @ self.Y_train )/( torch.ones(1, m, device = device)  @ k_XX_inv @ torch.ones( self.X_train.size()[0], 1, device = device )  )
-        fit = k_ZX @  k_XX_inv @ (self.Y_train.squeeze()-o).squeeze()
-        I=  (Y_te.squeeze() - fit.squeeze()).mean()
+        Y_train_dev = self.Y_train.to(device)
+        Y_te_dev = Y_te.to(device)
+
+        o  = (torch.ones(1, m, device = device )  @ k_XX_inv @ Y_train_dev )/( torch.ones(1, m, device = device)  @ k_XX_inv @ torch.ones( self.X_train.size()[0], 1, device = device )  )
+        fit = k_ZX @  k_XX_inv @ (Y_train_dev.squeeze()-o).squeeze()
+        I=  (Y_te_dev.squeeze() - fit.squeeze()).mean()
         return I
     
     # predict using CF on the points X_te 
@@ -93,8 +102,11 @@ class Simplied_CF(object):
         return fit       
 
 # function for control functionals
-def evaluate_cf_expectation(dist, sample_range, n_samples, h, reg = 0., given_sample = None, tune_kernel_params = True, return_learned= False):
+def evaluate_cf_expectation(dist, sample_range, n_samples, h, reg = 0., given_sample = None, given_score = None, tune_kernel_params = True, return_learned= False):
     
+    # can't give score without samples !
+    #assert(not (given_score is None) and (given_sample is None))
+
     # generate the samples uniformly in range if none given
     if given_sample is None:
         #   Generate and prepare sample data
@@ -107,9 +119,12 @@ def evaluate_cf_expectation(dist, sample_range, n_samples, h, reg = 0., given_sa
     
     sample = sample.to(device)
 
-    # calculate the score tensor
-    logp_sample = dist.log_prob(sample)
-    score_sample = get_grad(logp_sample.sum(), sample).detach()
+    if given_score is None:
+        # calculate the score tensor
+        logp_sample = dist.log_prob(sample)
+        score_sample = get_grad(logp_sample.sum(), sample).detach()
+    else:
+        score_sample = given_score.clone().detach().to(device)
 
     # targets for control functional regression
     h_sample = h(sample).detach()
@@ -130,7 +145,9 @@ def evaluate_cf_expectation(dist, sample_range, n_samples, h, reg = 0., given_sa
                                             verbose=False)
         print("After tuning params")
     # estimate the moments on the training data / samples
-    est_moment = cf_obj.do_nonsim_CF(sample, h_sample, score_sample)
+
+    with torch.no_grad():
+        est_moment = cf_obj.do_nonsim_CF(sample, h_sample, score_sample)
 
     print(f"Est moment CF: {est_moment}")
 

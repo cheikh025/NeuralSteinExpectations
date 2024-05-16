@@ -142,12 +142,12 @@ class TuneKernelParams_mllk_MRI_singledat(object):
         for i in range(epochs):
             batches_generator = self.chunks(train_indices, batch_size)  # this creates a generator
             for batch_idx, batch_indices in enumerate(batches_generator):
-                scheduler.step()
+                
                 optimizer.zero_grad()
                 out = neg_mll(batch_indices, beta_cstkernel)
                 out.backward()
                 optimizer.step()
-
+                scheduler.step()
 
             # Random shuffle
             np.random.shuffle(train_indices)

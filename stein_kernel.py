@@ -3,6 +3,8 @@ import numpy as np
 import math 
 import kernel 
 
+#import psutil 
+
 # from https://github.com/jz-fun/Meta_Control_Variates/blob/main/CF/stein_operators.py
 
 
@@ -59,7 +61,12 @@ class stein_base_kernel(object):
         grad_k_X = torch.zeros(X.size()[0], Z.size()[0], X.size()[1])
         grad_k_Z = torch.zeros(X.size()[0], Z.size()[0], X.size()[1])
         gradgrad_k = torch.zeros(X.size()[0], Z.size()[0])
+
         for i in range(X.size()[0]):
+            #print("i: ", i)
+            # print RAM usage 
+            #print(f"RAM memory percent used: {psutil.virtual_memory().percent}")
+            
             for j in range(Z.size()[0]):
                 _, grad_k_X[i, j, :], grad_k_Z[i, j, :], gradgrad_k[i,j] = base_kernel_obj.deriv_base_kernel(X[i], Z[j])
         
@@ -74,11 +81,11 @@ class stein_base_kernel(object):
         d = (grad_logpX @ grad_logpZ.t()) * base_kernel_obj.cal_kernel(X,Z)
 
         # Store grads, as they can used to check if the pytorch autograd is correct in our scenarios
-        self.grad_k_X = grad_k_X
-        self.grad_k_Z = grad_logpZ
-        self.gradgrad_k = gradgrad_k
-        self.grad_logpX = grad_logpX
-        self.grad_logpZ = grad_logpZ
+        #self.grad_k_X = grad_k_X
+        #self.grad_k_Z = grad_logpZ
+        #self.gradgrad_k = gradgrad_k
+        #self.grad_logpX = grad_logpX
+        #self.grad_logpZ = grad_logpZ
 
         value_stein_rbf_kernel = a + b + c + d    # value_stein_rbf_kernel = self.beta + a + b + c + d
 
