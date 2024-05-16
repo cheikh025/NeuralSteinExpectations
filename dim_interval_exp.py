@@ -23,10 +23,13 @@ torch.cuda.manual_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
+MEAN  = 1.0
+STD = 5.0
+
 def generate_points(n_samples,dim, sample_range=(-5, 5)):
     return torch.rand(n_samples, dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
 
-s_lim = 5
+s_lim = 7
 mb_size = 100
 
 def identity(x):
@@ -38,7 +41,7 @@ def square(x):
 def square_sum(x):
     return (x**2).sum(dim=-1).unsqueeze(-1)
 
-def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 100):
+def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 100, epochs = 500):
     """
      dist = Gaussian 
      h = square 
@@ -53,7 +56,7 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
     unif_samples = generate_points(n_points, dim, sample_range=(-s_lim,s_lim)).to(device)
 
     MEAN  = 1.0
-    STD = 1.0
+    STD = 5.0
     true_moment = (MEAN**2 + STD**2)*dim
 
 
@@ -68,39 +71,42 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
 
         
         # Evaluate Stein Expectation
-        #stein_est, net_nse = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
-        #                                                loss_type="grad", epochs=500,
-        #                                                 given_sample = unif_samples, return_learned=True, mb_size = mb_size)
-        stein_est = -1.0
+        stein_est, net_nse = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
+                                                        loss_type="grad", epochs=epochs,
+                                                         given_sample = unif_samples, return_learned=True, mb_size = mb_size)
+        print("Stein Grad Est: ", stein_est)
+        #stein_est = -1.0
 
         # Evaluate Stein Expectation
         print("\n Stein Diff Experiment:")
         stein_est_diff, net_nse_diff = evaluate_stein_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, 
-                                                        loss_type="diff", epochs=500,
+                                                        loss_type="diff", epochs=epochs,
                                                          given_sample = unif_samples, return_learned=True, mb_size = mb_size)
-        
+        print("Stein diff est: ", stein_est_diff)
+
         # evaluate neural CV expectation
         print("\n NCV (off sample) Experiment:") 
-        cv_est, net_ncv ,c_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, epochs=500, 
+        cv_est, net_ncv ,c_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim,s_lim), n_points, h=h, epochs=epochs, 
                                                            given_sample=unif_samples, return_learned=True, mb_size = mb_size)
         
         # use network trained on off-samples, but estimate expectation on true samples
         # should give better estimate than just cv_est
-        ncv_true_sample_vals = stein_g(true_samples, net_ncv, dist.log_prob) + c_ncv
-        ncv_off_train_on_est = (h(true_samples) - ncv_true_sample_vals).mean().item()
+        #ncv_true_sample_vals = stein_g(true_samples, net_ncv, dist.log_prob) + c_ncv
+        #ncv_off_train_on_est = (h(true_samples) - ncv_true_sample_vals).mean().item()
 
-        ncv_on_Tg_mean = ncv_true_sample_vals.mean().item()
+        #ncv_on_Tg_mean = ncv_true_sample_vals.mean().item()
 
 
         # evaluate neural CV expectation 
         print("\n NCV (on sample) Experiment:")
-        cv_on_sample_est, net_on_sample_ncv, c_on_sample_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=500, 
+        cv_on_sample_est, net_on_sample_ncv, c_on_sample_ncv  = evaluate_ncv_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=epochs, 
                                                                                          given_sample = true_samples, return_learned=True, mb_size = mb_size)
 
         # evaluate var grad objective
-        print("\n VarGrad (modification of NCV) Experiment (off sample): ")
-        var_grad_est, net_var_grad = evaluate_varg_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=500, 
-                                                                           given_sample = unif_samples, return_learned=True, mb_size = mb_size, perturb_samples = False)
+        #print("\n VarGrad (modification of NCV) Experiment (off sample): ")
+        #var_grad_est, net_var_grad = evaluate_varg_expectation(dist, dim, (-s_lim, s_lim), n_points, h=h, epochs=epochs, 
+        #                                                                   given_sample = unif_samples, return_learned=True, mb_size = mb_size, perturb_samples = False)
+        #var_grad_est = -1.0
 
         # evaluate CF expectation 
         
@@ -108,14 +114,18 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
         #                        n_samples= n_points, h = h, 
         #                        reg = 0., given_sample = unif_samples, 
         #                        tune_kernel_params = True, return_learned= True)
-        #print("CF est: ", cf_est)
-        cf_est = 0.
+        cf_est = -1.
+        print("CF est: ", cf_est)
+
         
-        print("\nStein (diff) est: ", stein_est_diff)
-        print("CV est (off sample): {}, CV off train on Est: {}, CV Tg On Sample Mean: {}".format(cv_est, ncv_off_train_on_est, ncv_on_Tg_mean))
+        print("\nStein (grad) est: ", stein_est)
+        print("Stein (diff) est: ", stein_est_diff)
+        print("CV est (off sample): ", cv_est)
+        #print("CV est (off sample): {}, CV off train on Est: {}, CV Tg On Sample Mean: {}".format(cv_est, ncv_off_train_on_est, ncv_on_Tg_mean))
         print("CV estimate (on sample): ", cv_on_sample_est)
-        print("VarGrad est: ", var_grad_est)
-        
+        #print("VarGrad est: ", var_grad_est)
+        print("CF estimate: ", cf_est)
+
         print("True moment: ", true_moment) 
         
 
@@ -184,58 +194,58 @@ def interval_exp(dim=1, device=device, seed = 123, plot_true=False, n_points = 1
         
         mc_est = h(true_samples).mean().item()
 
-        return mc_est, cv_est, cv_on_sample_est,ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff
+        return mc_est, cv_est, cv_on_sample_est, cf_est, stein_est, stein_est_diff
 
 mc_ests = []
 cv_ests = []
-cv_off_train_on_ests = []
-cv_Tg_means = []
 cv_on_sample_ests = []
 cf_ests = []
 stein_ests_grad = []
 stein_ests_diff = []
 true_moments = []
 
-exp_tag = 'multiDim_gaussian_mu_{}_std_{}_range_{}_h_sqaured_mb_size_{}'.format(1, 1, s_lim, mb_size)
+n_point_lim = 2000
 
-dims = [50] #500, 750, 1000]
+exp_tag = 'rerun_multiDim_gaussian_mu_{}_std_{}_range_{}_h_sqaured_mb_size_{}_data_size_{}'.format(1, 1, s_lim, mb_size, n_point_lim)
+
+dims = [20, 50] #, 20] #500, 750, 1000]
 cur_dims = []
 fixed_npoints = False #True
 
 for dim in dims:
-    for trial_seed in [11]:
+    for trial_seed in [12]:
         
         if fixed_npoints:
-            n_points = 1000
+            n_points = n_point_lim
         else:
-            n_points = max(1000*int(dim/10), 100)
+            n_points =max(n_point_lim*int(dim/10), 100)
+        
+        epochs = 1000 #* (int(dim/10)+1)
         
         # TODO: delete this line later
         mb_size = n_points
 
         print("\n\n Dim: {}\n".format(dim))
-        mc_est, cv_est, cv_on_sample_est, ncv_off_train_on_est, ncv_on_Tg_mean, cf_est, stein_est, stein_est_diff = interval_exp(dim=dim, device=device, seed = trial_seed, plot_true=False, n_points=n_points)
+        mc_est, cv_est, cv_on_sample_est, cf_est, stein_est, stein_est_diff = interval_exp(dim=dim, device=device, seed = trial_seed, plot_true=False, n_points=n_points, epochs = epochs)
 
         mc_ests.append(mc_est)
         cv_ests.append(cv_est)
-        cv_off_train_on_ests.append(ncv_off_train_on_est)
-        cv_Tg_means.append(ncv_on_Tg_mean)
         cv_on_sample_ests.append(cv_on_sample_est)
         cf_ests.append(cf_est)
         stein_ests_grad.append(stein_est)
         stein_ests_diff.append(stein_est_diff)
-        true_moments.append(dim*2.)
+        true_moments.append((MEAN**2 + STD**2)*dim)
 
         cur_dims.append(dim)
 
         # save intermediates
-        dataDict = {'Dim': cur_dims, 'True': true_moments, 'MC': mc_ests, 'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
+        dataDict = {'Dim': cur_dims, 'True': true_moments, 'MC': mc_ests, 'CV': cv_ests, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
         df = pd.DataFrame(dataDict)
-        df.to_csv('./results/{}_500_on.csv'.format(exp_tag))
+        df.to_csv('./results/seed_{}_dims_{}_500_on.csv'.format(trial_seed, exp_tag))
 
 
 
-dataDict = {'Dim': dims, 'True': true_moments, 'MC': mc_ests, 'CV': cv_ests, 'CV offTrain onEst': cv_off_train_on_ests, 'CV E_p[Tg]': cv_Tg_means, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
+dataDict = {'Dim': dims, 'True': true_moments, 'MC': mc_ests, 'CV': cv_ests, 'CV_On_Sample': cv_on_sample_ests, 'CF': cf_ests, 'Stein_Grad': stein_ests_grad, 'Stein_Diff': stein_ests_diff}
 
 df = pd.DataFrame(dataDict)
 df.to_csv('./results/{}.csv'.format(exp_tag))
@@ -244,13 +254,12 @@ plt.rcParams.update({'axes.titlesize': 20})
 
 plt.figure(figsize=(20,10))
 plt.plot(dims, true_moments, label = "True", color='k', marker='o')
-plt.plot(dims, mc_ests, label = "MC", marker='o')
+#plt.plot(dims, mc_ests, label = "MC", marker='o')
 plt.plot(dims, cv_ests, label = "CV", marker='o')
-plt.plot(dims, cv_off_train_on_ests, label = "CV OffTrain OnEst", marker='o')
 plt.plot(dims, cv_on_sample_ests, label = "CV OnSample", marker='o')
 plt.plot(dims, cf_ests, label = "CF", marker='o')
 plt.plot(dims, stein_ests_grad, label = "Stein Grad", marker='o')
-plt.plot(dims, stein_ests_diff, label = "Stein Est Diff", marker='o')
+plt.plot(dims, stein_ests_diff, label = "Stein Diff", marker='o')
 plt.legend(loc='best')
 
 # make boxplot for different methods, to illustrate variance

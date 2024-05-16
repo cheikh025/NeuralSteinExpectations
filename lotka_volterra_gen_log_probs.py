@@ -159,6 +159,7 @@ class Lotka_Task():
             temp = posterior.grad_log_prob(posterior.unconstrain_pars(dict(theta=theta[i,:].tolist(), \
                                                                            z_init=z_init[i,:].tolist(), \
                                                                            sigma=sigma[i,:].tolist())))
+            #temp = posterior.grad_log_prob(dict(theta=theta[i,:].tolist(), z_init=z_init[i,:].tolist(), sigma=sigma[i,:].tolist()))
             score_unconstrainedsamples[i] = torch.tensor(temp)
 
         return score_unconstrainedsamples
