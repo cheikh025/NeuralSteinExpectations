@@ -19,7 +19,7 @@ from LangevinSampler import *
 HOME = "results/MVN_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIMS = [1,2,3,5,10,15,30,50]
-SEED = [13,17,23,42]
+SEED = [13,17,23,42,169]
 MEAN = 3
 STD = np.sqrt(5)
 sample_range = (-10,10)
