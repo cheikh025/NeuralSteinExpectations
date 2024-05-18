@@ -16,7 +16,7 @@ from neuralStein import *
 from LangevinSampler import *
 
 # Parameters
-HOME = "results/MVN_results/"
+HOME = "experiments/MVN_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIMS = [1,2,3,5,10,15,30,50]
 SEED = [13,17,23,42,169]
@@ -93,6 +93,7 @@ def main(args):
     Data['NCV'].append(ncv_est)
     Data['NCV_on'].append(ncv_on_est)
     df = pd.DataFrame(Data)
+    print(Data)
     df.to_csv(HOME + f"MVN_exp_{args.experiment}.csv")
 
 

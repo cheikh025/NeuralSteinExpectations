@@ -15,7 +15,7 @@ from control_functional import *
 from neuralStein import *
 from LangevinSampler import *
 
-HOME = "results/mean_MVN_results/"
+HOME = "experiments/mean_MVN_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIMS = [5]
 SEED = [13,17,23,42,169]
@@ -80,6 +80,7 @@ def main(args):
         Data['Epochs'].append(epochs)
         Data['n_samples'].append(n_samples)
         Data['used_mean'].append(mean)
+    print(Data)
     df = pd.DataFrame(Data)
     df.to_csv(HOME + f"mean_MVN_exp_{args.experiment}.csv")
 

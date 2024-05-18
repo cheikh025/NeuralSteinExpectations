@@ -15,7 +15,7 @@ from control_functional import *
 from neuralStein import *
 from LangevinSampler import *
 
-HOME = "results/GMM_results/"
+HOME = "experiments/GMM_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIMS = [10]
 SEED = [7,13,23,42,169]
