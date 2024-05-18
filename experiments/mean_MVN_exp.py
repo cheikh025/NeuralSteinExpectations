@@ -22,7 +22,7 @@ SEED = [13,17,23,42]
 MEAN = 3
 MEANS = np.linspace(1, 10, 10)
 STD = np.sqrt(5)
-#sample_range = (-10,10)
+sample_range = (-10,10)
 EPOCHS = [1500]
 N_SAMPLES = [500]
 
@@ -45,33 +45,27 @@ def get_parameters(experiment):
 
 def main(args):
     Data = {'dim': [], 'seed': [], 'true_val': [], 'NSE_diff': [], 
-            'NSE_grad': [], 'Langevin': [], 
-            'HMC': [],'CF_on': [], 'NCV_on': []}
+            'NSE_grad': [], 'CF_on': [], 'NCV_on': []}
     dim, seed, epochs, n_samples = get_parameters(args.experiment - 1)
     print(f"dim: {dim}, seed: {seed}, True Val: {dim*(MEAN**2 + STD**2)}")
     torch.manual_seed(seed)
     dist = MultivariateNormalDistribution(mean=MEAN*torch.ones(dim).to(device), 
                                         covariance=(STD**2)*torch.eye(dim).to(device))
     for mean in MEANS:
+        print(f"Sampling mean: {mean}")
         samples = mean + STD*torch.randn(n_samples, dim).to(device)
         
-        LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
-                                num_chains=1024, device=device)
-        print(f"\t Langevin est: {LMC_est.item()}")
-        HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
-                        num_chains=1024, device=device)
-        print(f"\t HMC est: {HMC_est}")
-        NSE_grad = evaluate_stein_expectation(dist, dim, n_samples, h = h, 
+        NSE_grad = evaluate_stein_expectation(dist, dim, None, n_samples, h = h, 
                                                     given_sample=samples, epochs=epochs, loss_type = "grad")
         print(f"\t Stein est grad: {NSE_grad}")
-        NSE_diff = evaluate_stein_expectation(dist, dim,  n_samples, 
+        NSE_diff = evaluate_stein_expectation(dist, dim, None,  n_samples, 
                                                 given_sample=samples, h = h, epochs=epochs, loss_type = "diff")
         print(f"\t Stein est diff: {NSE_diff}")
-        cf_on_est = evaluate_cf_expectation(dist = dist, 
+        cf_on_est = evaluate_cf_expectation(dist = dist, sample_range=None,
                                 n_samples= n_samples, h = h,
                                 reg=0., given_sample = samples)
         print(f"\t CF on-samples est: {cf_on_est}")
-        ncv_on_est = evaluate_ncv_expectation(dist, dim, n_samples, h, 
+        ncv_on_est = evaluate_ncv_expectation(dist, dim, sample_range=None, n_samples=n_samples, h=h, 
                                         epochs=epochs, reg = 0., given_sample = samples)
         print(f"\t NCV on-samples est: {ncv_on_est}")
 
@@ -79,8 +73,6 @@ def main(args):
         Data['dim'].append(dim)
         Data['seed'].append(seed)
         Data['true_val'].append(dim*(MEAN**2 + STD**2))
-        Data['Langevin'].append(LMC_est)
-        Data['HMC'].append(HMC_est)
         Data['NSE_diff'].append(NSE_diff)
         Data['NSE_grad'].append(NSE_grad)
         Data['CF_on'].append(cf_on_est)
