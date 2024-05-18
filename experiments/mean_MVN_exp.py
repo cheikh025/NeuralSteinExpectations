@@ -45,7 +45,7 @@ def get_parameters(experiment):
 
 def main(args):
     Data = {'dim': [], 'seed': [], 'true_val': [], 'NSE_diff': [], 
-            'NSE_grad': [], 'CF_on': [], 'NCV_on': []}
+            'NSE_grad': [], 'CF_on': [], 'NCV_on': [], 'Epochs': [], 'n_samples': [], 'used_mean': []}
     dim, seed, epochs, n_samples = get_parameters(args.experiment - 1)
     print(f"dim: {dim}, seed: {seed}, True Val: {dim*(MEAN**2 + STD**2)}")
     torch.manual_seed(seed)
