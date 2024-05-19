@@ -20,11 +20,11 @@ torch.manual_seed(seed)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PARAM_TO_ESTIMATE = 3 #1 #7 # This gives the index of the parameter to estimate : 0 = x_1, 1 = x_2, 2 = x_3, 3 = x_4
-N = 100
-EPOCHS = 2000
+N = 500
+EPOCHS = 200#0
 
 def integrand(x):
-    return x#[:, PARAM_TO_ESTIMATE]
+    return x[:, PARAM_TO_ESTIMATE]
 
 # prior means and variances (on unconstrained parameters)
 p_means = torch.tensor([0, -3, -3, 0, np.log(10), np.log(10), -1, -1]).to(device).float()
@@ -57,9 +57,8 @@ prior = torch.distributions.Uniform(center - 2, center + 0.1*torch.Tensor([.1, .
 prior_samples = torch.load('./ode_exps/data/prior_samples_unc.pt')
 prior_score = torch.load('./ode_exps/data/score_unc_prior.pt')
 
-dim = 1
+dim = 8 #1 # change to 1 when using independence approx grad log p(x_i)
 sample_range = (p_means[PARAM_TO_ESTIMATE].cpu().detach().numpy()-5, p_means[PARAM_TO_ESTIMATE].cpu().detach().numpy()+5)
-
 
 # load data, with the precomputed score
 all_data = torch.load('./ode_exps/data/all_data_lv.pt')
@@ -73,16 +72,16 @@ post_score_samples = all_data['score_unconstrainedsamples_all']
 # mesh samples are subset of posterior samples
 idx =  torch.randperm(N)
 
-mesh_samples = prior_samples[idx,:][:, PARAM_TO_ESTIMATE] #post_samples[idx, :][:, PARAM_TO_ESTIMATE] # (N, 1) - 1024 samples
-mesh_score = prior_score[idx,:][:, PARAM_TO_ESTIMATE] #post_score_samples[idx, :][:, PARAM_TO_ESTIMATE] # (N, 1) - 1024 samples
+mesh_samples = prior_samples[idx,:] #[:, PARAM_TO_ESTIMATE] #post_samples[idx, :][:, PARAM_TO_ESTIMATE] # (N, 1) - 1024 samples
+mesh_score = prior_score[idx,:] #[:, PARAM_TO_ESTIMATE] #post_score_samples[idx, :][:, PARAM_TO_ESTIMATE] # (N, 1) - 1024 samples
 
 # for checking on policy 
 #mesh_samples = post_samples[idx, :][:, PARAM_TO_ESTIMATE] # (N, 1) - 1024 samples
 #mesh_score = post_score_samples[idx, :][:, PARAM_TO_ESTIMATE] # (N, 1) - 1024 samples
 
 
-mesh_samples = mesh_samples.unsqueeze(1)
-mesh_score = mesh_score.unsqueeze(1)
+mesh_samples = mesh_samples#.unsqueeze(1)
+mesh_score = mesh_score#.unsqueeze(1)
 
 print(mesh_samples.shape)
 
@@ -91,7 +90,7 @@ stein_est = evaluate_stein_expectation(prior,
                            sample_range= (0,2), 
                            n_samples = N, 
                            h =integrand,
-                           epochs=1000,
+                           epochs=EPOCHS,
                            loss_type = "diff",
                            given_sample = mesh_samples.to(device),
                            given_score = mesh_score.to(device))
@@ -101,11 +100,10 @@ ncv_est = evaluate_ncv_expectation(prior,
                            sample_range= (0,2), 
                            n_samples = N, 
                            h =integrand,
-                           epochs=1000,
+                           epochs=EPOCHS,
                            reg = 0.,
                            given_sample = mesh_samples.to(device),
                            given_score = mesh_score.to(device))
-
 
 cf_est, cf_obj = evaluate_cf_expectation(dist = prior, sample_range=(0,2),
                                 n_samples= N, h = integrand,
