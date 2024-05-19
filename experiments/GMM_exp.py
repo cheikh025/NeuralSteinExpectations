@@ -17,11 +17,11 @@ from LangevinSampler import *
 
 HOME = "experiments/GMM_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-DIMS = [10]
+DIMS = [1,2,3,5,10,20,30]
 SEED = [7,13,23,42,169]
 sample_range = (-5,10)
-EPOCHS = [1500]
-N_SAMPLES = [500]
+EPOCHS = [1000*int(dim/10 + 1) for dim in DIMS]
+N_SAMPLES = [300*int(dim/10 + 1) for dim in DIMS]
 
 # Define the function h(x)
 def h(x):
@@ -52,10 +52,10 @@ def main(args):
                             pi=torch.tensor([0.5, 0.5])
                             )
 
-    LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
+    LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=10, 
                             num_chains=100, device=device)
     print(f"\t Langevin est: {LMC_est.item()}")
-    HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
+    HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=10, 
                     num_chains=100, device=device)
     print(f"\t HMC est: {HMC_est}")
     NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, 
