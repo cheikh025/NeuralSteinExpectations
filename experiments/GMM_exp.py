@@ -19,9 +19,9 @@ HOME = "experiments/GMM_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIMS = [1,2,3,5,10,20,30]
 SEED = [7,13,23,42,169]
-sample_range = (-5,10)
+sample_range = (-6,6)
 EPOCHS = [1000*int(dim/10 + 1) for dim in DIMS]
-N_SAMPLES = [300*int(dim/10 + 1) for dim in DIMS]
+N_SAMPLES = [300 for dim in DIMS]
 
 # Define the function h(x)
 def h(x):
@@ -44,18 +44,18 @@ def main(args):
     dim, seed, epochs, n_samples = get_parameters(args.experiment - 1)
     print(f"dim: {dim}, seed: {seed}, True Val: 0.0")
     torch.manual_seed(seed)
-    dist = Mixture(comps=[MultivariateNormalDistribution(mean = -2*torch.ones(dim),
-                                            covariance=torch.eye(dim)),
-                                MultivariateNormalDistribution(mean = 2*torch.ones(dim),
-                                            covariance=torch.eye(dim)
+    dist = Mixture(comps=[MultivariateNormalDistribution(mean = -2*torch.ones(dim).to(device),
+                                            covariance=torch.eye(dim).to(device)),
+                                MultivariateNormalDistribution(mean = 2*torch.ones(dim).to(device),
+                                            covariance=torch.eye(dim).to(device)
                                             )],
-                            pi=torch.tensor([0.5, 0.5])
+                            pi=torch.tensor([0.5, 0.5]).to(device)
                             )
 
-    LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=10, 
+    LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
                             num_chains=100, device=device)
     print(f"\t Langevin est: {LMC_est.item()}")
-    HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=10, 
+    HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
                     num_chains=100, device=device)
     print(f"\t HMC est: {HMC_est}")
     NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, 
@@ -85,7 +85,7 @@ def main(args):
     Data['n_samples'].append(n_samples)
     print(Data)
     df = pd.DataFrame(Data)
-    df.to_csv(HOME + f"MVN_exp_{args.experiment}.csv")
+    df.to_csv(HOME + f"GMM_exp_{args.experiment}.csv")
 
 
 if __name__ == '__main__':    
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     # python MVN_exp.py --experiment=NO_OF_EXPERIMENT
     # NO_OF_EXPERIMENT is an integer from 1 to 32
     # Example : if NO_OF_EXPERIMENT = 1, then dim = 1, seed = 42, epochs = 1000, n_samples = 300 
-    #           if NO_OF_EXPERIMENT = 5, then dim = 2, seed = 42, epochs = 1000, n_samples = 500
+    #           if NO_OF_EXPERIMENT = 6, then dim = 2, seed = 42, epochs = 1000, n_samples = 500
     parser = argparse.ArgumentParser(description="Process some parameters.")
     
     # Define the --experiment argument
