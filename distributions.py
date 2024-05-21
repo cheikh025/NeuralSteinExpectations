@@ -420,5 +420,6 @@ class Mixture:
         return logpx
     
     def generate_points(self, n_samples, sample_range=(-5, 5)):
-        return torch.rand(n_samples, self.dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
+        # Changed this to return the mesh from the same distribution as MCMC methods
+        return 1 + 10*torch.randn(n_samples, self.dim) #torch.rand(n_samples, self.dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
 
