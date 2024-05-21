@@ -89,7 +89,8 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
     return net
 
 # mb_size = None means no minibatching/full batch 
-def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None):
+def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None, 
+                            resample_ = False, sample_range = None):
     device = sample.device
 
     #perturbed samples
@@ -148,7 +149,17 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
             optimizer.step()
 
             epoch_loss += loss.item()/sample.size(0)
-            
+
+        if resample_ : 
+            sample = target_dist.generate_points(sample.size(0), sample_range).to(device).requires_grad_(True)
+            sample_bar = sample + (torch.randn_like(sample)).to(device)
+            h_sample = h(sample).detach().to(device)
+            h_sample_bar = h(sample_bar).detach().to(device)
+            logp_sample = target_dist.log_prob(sample)
+            score_sample = get_grad(logp_sample.sum(), sample).detach()
+            logp_sample_bar = target_dist.log_prob(sample_bar)
+            score_sample_bar = get_grad(logp_sample_bar.sum(), sample_bar).detach()
+
         if verbose:
             if e % 100 == 0:  
                 print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
@@ -222,7 +233,7 @@ def train_network_diff_loss_no_perturb(net, optimizer, sample, target_score, h, 
 
 
 #loss type is either 'grad' or 'diff'
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, given_score = None, network="MLP", return_learned = False, mb_size = None):
+def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, given_score = None, network="MLP", return_learned = False, mb_size = None, resample_ = False):
     # Initialize distribution and MLP network
     if network == 'NormalizedMLP':
         net = normalizedMLP(n_dims=net_dims, n_out=net_dims)
@@ -251,7 +262,8 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
         trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
     elif loss_type == "diff":
         if given_score is None:
-            trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
+            trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, 
+                                                mb_size = mb_size, resample_ = resample_, sample_range=sample_range)
         else:
             trained_net = train_network_diff_loss_no_perturb(net, optimizer, sample, given_score, h, epochs, verbose=True, mb_size = mb_size)
 
