@@ -13,7 +13,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def est_moment(stein_val, h_sample):
     return ((h_sample - stein_val)).mean()
 
-def train_network_ncv_loss(net, c, optimizer, optim_c, sample, target_dist, h, epochs, reg = 0., verbose=True, mb_size = None):
+def train_network_ncv_loss(net, c, optimizer, optim_c, sample, target_dist, h, epochs, reg = 0., 
+                           verbose=True, mb_size = None, resample_ = False, sample_range = None):
 
     # precompute h(sample) and logp(sample)
     h_sample = h(sample).detach().to(device)
@@ -66,6 +67,12 @@ def train_network_ncv_loss(net, c, optimizer, optim_c, sample, target_dist, h, e
             optim_c.step() 
             
             epoch_loss += loss.item()/sample.size(0)
+
+        if resample_:
+            sample = target_dist.generate_points(sample.size(0), sample_range).to(device).requires_grad_(True)
+            h_sample = h(sample).detach().to(device)
+            logp_sample = target_dist.log_prob(sample)
+            score_sample = get_grad(logp_sample.sum(), sample).detach()
 
         if verbose:
             if e % 100 == 0:  
@@ -135,7 +142,8 @@ def train_network_ncv_loss_precomputed_score(net, c, optimizer, optim_c, sample,
 # train with var grad:
 # train with var min objective - ie. pass gradient through mean as well
 # no c this time 
-def train_network_var_min(net, optimizer, sample, target_dist, h, epochs, reg = 0., verbose=True, mb_size = None, with_perturb_samples = False):
+def train_network_var_min(net, optimizer, sample, target_dist, h, epochs, reg = 0., verbose=True, mb_size = None, 
+                          with_perturb_samples = False, resample_ = False, sample_range = None):
 
     # if want to compare with same sample set as neural Stein
     if with_perturb_samples:
@@ -204,6 +212,12 @@ def train_network_var_min(net, optimizer, sample, target_dist, h, epochs, reg = 
         grad_norms.append(get_grad_norm(net))
         est_moments.append(est_moment(stein_val, h_sample_mb).detach().item())
 
+        if resample_:
+            sample = target_dist.generate_points(sample.size(0), sample_range).to(device).requires_grad_(True)
+            h_sample = h(sample).detach().to(device)
+            logp_sample = target_dist.log_prob(sample)
+            score_sample = get_grad(logp_sample.sum(), sample).detach()
+            
         if verbose:
             if e % 100 == 0:  
                 print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}, Est moment (Stein-val - h): {est_moment(stein_val, h_sample_mb)}, MC est: {h_sample.mean()}, Grad Norm: {grad_norms[-1]}')
@@ -286,6 +300,8 @@ def train_network_var_min_IS(net, optimizer, sample, target_dist, sample_dist_lo
         grad_norms.append(get_grad_norm(net))
         est_moments.append(est_moment(stein_val, h_sample_mb).detach().item())
 
+
+
         if verbose:
             if e % 100 == 0:  
                 print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}, Est moment (Stein-val - h): {est_moment(stein_val, h_sample_mb)}, MC est: {h_sample.mean()}, Grad Norm: {grad_norms[-1]}')
@@ -294,7 +310,8 @@ def train_network_var_min_IS(net, optimizer, sample, target_dist, sample_dist_lo
 
 
 
-def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, reg = 0., given_sample = None, given_score = None, return_learned = False, mb_size = None):
+def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, reg = 0., 
+                             given_sample = None, given_score = None, return_learned = False, mb_size = None, resample_ = False):
     # Initialize distribution and MLP network
     net = MLP(n_dims=net_dims, n_out=net_dims)
     net = torch.nn.DataParallel(net)
@@ -312,10 +329,11 @@ def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=
     else:
         # copy given samples, and set requires_grad to True
         sample = given_sample.clone().detach().to(device).requires_grad_(True)
+        assert(resample_ == False), "Resampling is not possible with given samples!"
 
     if given_score is None:
         # Train the network and estimate the moment
-        trained_net, trained_c = train_network_ncv_loss(net,c, optimizer, optim_c, sample, dist, h, epochs, reg=reg, verbose=True, mb_size = mb_size)
+        trained_net, trained_c = train_network_ncv_loss(net,c, optimizer, optim_c, sample, dist, h, epochs, reg=reg, verbose=True, mb_size = mb_size, resample_ = resample_, sample_range = sample_range)
     else:
         trained_net, trained_c = train_network_ncv_loss_precomputed_score(net,c, optimizer, optim_c, sample, given_score, h, epochs, reg=reg, verbose=True, mb_size = mb_size)
 
@@ -334,7 +352,8 @@ def evaluate_ncv_expectation(dist, net_dims, sample_range, n_samples, h, epochs=
     return est_moment.mean().item() #-abs(est_moment.mean().item() - dist.second_moment())
 
 
-def evaluate_varg_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, reg = 0., given_sample = None, given_score = None, return_learned = False, mb_size = None, perturb_samples = False):
+def evaluate_varg_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, reg = 0., given_sample = None, given_score = None, 
+                              return_learned = False, mb_size = None, perturb_samples = False, resample_ = False):
     # Initialize distribution and MLP network
     net = MLP(n_dims=net_dims, n_out=net_dims)
     net = torch.nn.DataParallel(net)
@@ -349,10 +368,12 @@ def evaluate_varg_expectation(dist, net_dims, sample_range, n_samples, h, epochs
     else:
         # copy given samples, and set requires_grad to True
         sample = given_sample.clone().detach().to(device).requires_grad_(True)
+        assert(resample_ == False), "Resampling is not possible with given samples!"
 
     if given_score is None:
         # Train the network and estimate the moment
-        trained_net = train_network_var_min(net, optimizer, sample, dist, h, epochs, reg=reg, verbose=True, mb_size = mb_size, with_perturb_samples = perturb_samples)
+        trained_net = train_network_var_min(net, optimizer, sample, dist, h, epochs, reg=reg, verbose=True, mb_size = mb_size, 
+                                            with_perturb_samples = perturb_samples, resample_ = resample_, sample_range = sample_range)
     else:
         print("\n\nPassing precomputed score to vargrad is not implemented yet!!")
         return exit()

@@ -34,7 +34,7 @@ def stein_g_precomputed_score(x, g, score_x):
     return stein_val_batches
 
 # mb_size = None means no minibatching/full batch 
-def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None):
+def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None, resample_=False, sample_range = None):
 
     # precompute h(sample) and logp(sample)
     h_sample = h(sample)
@@ -82,6 +82,10 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
             optimizer.step()
             
             epoch_loss += loss.item()/sample.size(0)
+        if resample_:
+            sample = target_dist.generate_points(sample.size(0), sample_range).to(device).requires_grad_(True)
+            h_sample = h(sample)
+            grad_h = get_grad(h(sample).sum(), sample).detach()
 
         if verbose:
             if e % 100 == 0:  
@@ -255,11 +259,12 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
     else:
         # copy given samples, and set requires_grad to True
         sample = given_sample.clone().detach().to(device).requires_grad_(True)
+        assert(resample_ == False), "Resampling is not possible with given samples!"
     
 
     # Train the network and estimate the moment
     if loss_type == "grad":
-        trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
+        trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size, resample_ = resample_, sample_range=sample_range)
     elif loss_type == "diff":
         if given_score is None:
             trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, 
