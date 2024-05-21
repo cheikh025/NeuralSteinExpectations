@@ -211,6 +211,87 @@ def train_network_var_min(net, optimizer, sample, target_dist, h, epochs, reg = 
     return net #, losses, grad_norms, est_moments
 
 
+# train with var grad:
+# train with var min objective - ie. pass gradient through mean as well
+# no c this time 
+def train_network_var_min_precomputed_score(net, optimizer, sample, given_score, target_dist, h, epochs, reg = 0., verbose=True, mb_size = None, with_perturb_samples = False):
+
+    # if want to compare with same sample set as neural Stein
+    if with_perturb_samples:
+        samples_bar = (sample + torch.randn_like(sample)).to(device)
+        sample = torch.cat([sample, samples_bar], dim = 0)
+
+    losses = []
+    grad_norms = []
+    est_moments = []
+
+    # precompute h(sample) and logp(sample)
+    h_sample = h(sample).detach().to(device)
+
+    logp_sample = target_dist.log_prob(sample)
+    score_sample = given_score
+    #score_sample = get_grad(logp_sample.sum(), sample).detach()
+    
+    # data minibatches
+    # full batch 
+    if mb_size is None:
+        batch_idx = torch.arange(0,sample.size(0)).long()
+        mb_size = sample.size(0)
+    else:
+        print("**Minibatches with batch size: ", mb_size)
+        batch_idx = torch.randperm(sample.size(0))
+
+    for e in tqdm(range(epochs), desc='Training '):
+        epoch_loss = 0.
+
+        for b_num in range(0, sample.size(0), mb_size):
+            idx = batch_idx[b_num: b_num + mb_size]
+
+            # get minibatch vals
+            sample_mb = sample[idx, :]
+            h_sample_mb = h_sample[idx]
+
+            optimizer.zero_grad()
+
+            stein_val = stein_g_precomputed_score(sample_mb, net, score_sample)
+
+            #print(f'Stein val shape: {stein_val.shape}')
+            #print(f'H sample shape: {h_sample.shape}')
+              
+            assert(stein_val.shape == h_sample_mb.shape)
+            assert(stein_val.device == h_sample_mb.device)
+
+            # need to be differentiable wrt g here in mean as well
+            # this is the key difference from the "train g" then "train c" alternatingly method above
+            est_mean = (stein_val - h_sample_mb).mean()
+
+            # empirical variance (note: NOT unbiased variance estimator)
+            loss = torch.mean((stein_val - h_sample_mb - est_mean)**2)
+
+            if reg > 0.:
+                loss += reg * (net(sample_mb)**2).mean()
+
+            loss.backward()
+            optimizer.step()
+            
+            c_val  = est_moment(stein_val, h_sample_mb).detach()
+          
+            epoch_loss += loss.item()/sample.size(0)
+
+        # track loss each epoch
+        losses.append(epoch_loss)    
+
+        grad_norms.append(get_grad_norm(net))
+        est_moments.append(est_moment(stein_val, h_sample_mb).detach().item())
+
+        if verbose:
+            if e % 100 == 0:  
+                print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}, Est moment (Stein-val - h): {est_moment(stein_val, h_sample_mb)}, MC est: {h_sample.mean()}, Grad Norm: {grad_norms[-1]}')
+
+    return net #, losses, grad_norms, est_moments
+
+
+
 # train with var grad: and importance sampling (assumes target_dist density is normalized)
 # pass grad thru mean as well
 # must pass sample_dist as well (which off-samples are actually obtained from)
@@ -353,7 +434,8 @@ def evaluate_varg_expectation(dist, net_dims, sample_range, n_samples, h, epochs
     if given_score is None:
         # Train the network and estimate the moment
         trained_net = train_network_var_min(net, optimizer, sample, dist, h, epochs, reg=reg, verbose=True, mb_size = mb_size, with_perturb_samples = perturb_samples)
-    else:
+    else: 
+        trained_net = train_network_var_min_precomputed_score(net, optimizer, sample, given_score, dist, h, epochs, reg=reg, verbose=True, mb_size = mb_size, with_perturb_samples = perturb_samples)
         print("\n\nPassing precomputed score to vargrad is not implemented yet!!")
         return exit()
 
