@@ -88,6 +88,63 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
                 print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
     return net
 
+
+# mb_size = None means no minibatching/full batch 
+def train_network_grad_loss_precomputed_score(net, optimizer, sample, given_score, target_dist, h, epochs, verbose=True, mb_size = None):
+
+    # precompute h(sample) and logp(sample)
+    h_sample = h(sample)
+
+    # precompute grad_h
+    grad_h = get_grad(h(sample).sum(), sample).detach()
+
+    #logp_sample = target_dist.log_prob(sample)
+
+    # data minibatches
+    # full batch 
+    if mb_size is None:
+        batch_idx = torch.arange(0,sample.size(0)).long()
+        mb_size = sample.size(0)
+    else:
+        print("**Minibatches with batch size: ", mb_size)
+        batch_idx = torch.randperm(sample.size(0))
+
+    for e in tqdm(range(epochs), desc='Training '):
+        epoch_loss = 0.
+
+        # over minibatches
+        for b_num in range(0, sample.size(0), mb_size):
+            idx = batch_idx[b_num: b_num + mb_size]
+            sample_mb = sample[idx, :]
+            h_sample_mb = h_sample[idx]
+
+            optimizer.zero_grad()
+
+            stein_val = stein_g_precomputed_score(sample_mb, net, score_x = given_score[idx,:])
+
+            #print(f'Stein val shape: {stein_val.shape}')
+            #print(f'H sample shape: {h_sample.shape}')
+
+            assert(stein_val.shape == h_sample_mb.shape), f"Stein val shape: {stein_val.shape}, H sample shape: {h_sample.shape}"
+
+            grad_s = get_grad(stein_val.sum(), sample_mb)
+            grad_h_mb = grad_h[idx, :]
+            #grad_h = get_grad(h(sample_mb).sum(), sample_mb) # NOTE: preferably uses precomputed h_sample_mb, look into improving
+        
+            assert(grad_s.shape == grad_h_mb.shape)
+
+            loss = torch.sum((grad_s - grad_h_mb)**2)
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()/sample.size(0)
+
+        if verbose:
+            if e % 100 == 0:  
+                print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
+    return net
+
+
 # mb_size = None means no minibatching/full batch 
 def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None, 
                             resample_ = False, sample_range = None):
@@ -259,7 +316,10 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
 
     # Train the network and estimate the moment
     if loss_type == "grad":
-        trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
+        if given_score is None:
+            trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size)
+        else: 
+            trained_net = train_network_grad_loss_precomputed_score(net, optimizer, sample, given_score, dist, h, epochs, verbose=True, mb_size = mb_size)
     elif loss_type == "diff":
         if given_score is None:
             trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, 
