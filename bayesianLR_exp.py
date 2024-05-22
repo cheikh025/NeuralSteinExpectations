@@ -7,7 +7,6 @@ import torch
 import torch.distributions as tdist
 import random
 import math
-from OtherMethods import HamiltonianMCMC 
 from neuralStein import *
 from LangevinSampler import *
 import pandas as pd
