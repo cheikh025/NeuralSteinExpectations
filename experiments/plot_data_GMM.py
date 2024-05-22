@@ -5,11 +5,11 @@ import numpy as np
 sns.set_style('whitegrid')
 
 HOME = "experiments/GMM_results/"
-NAMES = {"Langevin": "LMC", "HMC": "HMC", "CF": "CF", "NCV": "NCV", "CF_on": "CF_on", 
-         "NCV_on": "NCV_on", "NSE_diff": "NSE (D)", "NSE_grad": "NSE (G)"}
+NAMES_AND_MARKERS = {"Langevin": ("LMC",'s'), "HMC": ("HMC",'^'), "CF": ("CF",'D'), "NCV": ("NCV",'P'), 
+         "NSE_diff": ("NSE (D)", '*'), "NSE_grad": ("NSE (G)",'v')}
 
 # Load the data
-df = pd.read_csv(HOME + 'merged_GMM_results.csv')
+df = pd.read_csv(HOME + 'final_merged_GMM_results.csv')
 
 # Calculate the means and standard deviations
 means = df.groupby(['dim']).mean().reset_index()
@@ -21,12 +21,11 @@ stds.to_csv(HOME + 'stds.csv')
 
 # Plot the data
 plt.figure(figsize=(20, 10))
-markers = ['s', 'o', 'v', '*', 'D', 'P']
-# plot with confidence intervals
 
 
 for i, method in enumerate(['Langevin', 'HMC', 'NSE_diff', 'NSE_grad', 'CF', 'NCV']):
-    sns.lineplot(data=means, x='dim', y=method, label=NAMES[method], marker=markers[i], markersize=10)
+    n, m = NAMES_AND_MARKERS[method]
+    sns.lineplot(data=means, x='dim', y=method, label=n, marker=m, markersize=10)
     plt.fill_between(means['dim'], means[method] - stds[method], means[method] + stds[method], alpha=0.3)
 
 
@@ -43,6 +42,6 @@ plt.tick_params(axis='both', which='major', labelsize=18)
 plt.tick_params(axis='both', which='minor', labelsize=18)
 plt.legend(fontsize=16)
 plt.legend(loc='upper left')
-plt.title(r'Estimated Value vs. Dimension for MoG')
+plt.title(r'Estimated Value vs. Dimension for MoG', fontsize=20)
 plt.savefig(HOME + 'GMM_estimated_value_vs_dimension.png')
 
