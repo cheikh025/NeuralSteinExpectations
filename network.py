@@ -43,6 +43,15 @@ class MLP(nn.Module):
                 nn.SiLU(),
                 layer(n_hid, n_out)
             )
+        
+        self.initialize_parameters()
+
+    def initialize_parameters(self):
+        for module in self.net:
+            if isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight, mean=0.0, std=0.01)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
 
     def forward(self, x):
         x = x.view(x.size(0), -1)

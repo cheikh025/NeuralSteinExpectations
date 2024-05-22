@@ -1,0 +1,101 @@
+,Parameter,Seed,Method,Error
+0,1,23,NCV,tensor(5.0959)
+1,1,23,Stein,tensor(0.2404)
+2,1,23,CF,tensor(2.5179)
+3,1,23,MCOnMesh,"tensor(1.8418, device='cuda:0')"
+4,1,23,Stein_grad,tensor(2.4090)
+5,1,2,NCV,tensor(4.4422)
+6,1,2,Stein,tensor(0.1259)
+7,1,2,CF,tensor(1.4983)
+8,1,2,MCOnMesh,"tensor(1.8418, device='cuda:0')"
+9,1,2,Stein_grad,tensor(1.6036)
+10,1,8,NCV,tensor(8.7978)
+11,1,8,Stein,tensor(0.5901)
+12,1,8,CF,tensor(1.0078)
+13,1,8,MCOnMesh,"tensor(1.8418, device='cuda:0')"
+14,1,8,Stein_grad,tensor(1.2310)
+15,1,6,NCV,tensor(1.0524)
+16,1,6,Stein,tensor(0.1990)
+17,1,6,CF,tensor(1.3510)
+18,1,6,MCOnMesh,"tensor(1.8418, device='cuda:0')"
+19,1,6,Stein_grad,tensor(0.0300)
+20,1,10,NCV,tensor(4.7083)
+21,1,10,Stein,tensor(0.5339)
+22,1,10,CF,tensor(1.7185)
+23,1,10,MCOnMesh,"tensor(1.8418, device='cuda:0')"
+24,1,10,Stein_grad,tensor(1.3432)
+25,3,23,NCV,tensor(5.1688)
+26,3,23,Stein,tensor(0.0742)
+27,3,23,CF,tensor(1.6273)
+28,3,23,MCOnMesh,"tensor(1.9904, device='cuda:0')"
+29,3,23,Stein_grad,tensor(0.2935)
+30,3,2,NCV,tensor(4.2967)
+31,3,2,Stein,tensor(0.0205)
+32,3,2,CF,tensor(0.5389)
+33,3,2,MCOnMesh,"tensor(1.9904, device='cuda:0')"
+34,3,2,Stein_grad,tensor(2.6565)
+35,3,8,NCV,tensor(8.5914)
+36,3,8,Stein,tensor(0.4665)
+37,3,8,CF,tensor(0.5372)
+38,3,8,MCOnMesh,"tensor(1.9904, device='cuda:0')"
+39,3,8,Stein_grad,tensor(0.0142)
+40,3,6,NCV,tensor(1.2240)
+41,3,6,Stein,tensor(0.1285)
+42,3,6,CF,tensor(2.8733)
+43,3,6,MCOnMesh,"tensor(1.9904, device='cuda:0')"
+44,3,6,Stein_grad,tensor(1.1689)
+45,3,10,NCV,tensor(4.9097)
+46,3,10,Stein,tensor(0.4153)
+47,3,10,CF,tensor(1.9504)
+48,3,10,MCOnMesh,"tensor(1.9904, device='cuda:0')"
+49,3,10,Stein_grad,tensor(4.0430)
+50,5,23,NCV,tensor(3.6075)
+51,5,23,Stein,tensor(1.4983)
+52,5,23,CF,tensor(2.4346)
+53,5,23,MCOnMesh,"tensor(3.5239, device='cuda:0')"
+54,5,23,Stein_grad,tensor(0.5642)
+55,5,2,NCV,tensor(5.7895)
+56,5,2,Stein,tensor(1.4471)
+57,5,2,CF,tensor(1.3118)
+58,5,2,MCOnMesh,"tensor(3.5239, device='cuda:0')"
+59,5,2,Stein_grad,tensor(2.2254)
+60,5,8,NCV,tensor(10.0441)
+61,5,8,Stein,tensor(1.8584)
+62,5,8,CF,tensor(1.2944)
+63,5,8,MCOnMesh,"tensor(3.5239, device='cuda:0')"
+64,5,8,Stein_grad,tensor(1.1985)
+65,5,6,NCV,tensor(0.2493)
+66,5,6,Stein,tensor(1.4806)
+67,5,6,CF,tensor(3.5051)
+68,5,6,MCOnMesh,"tensor(3.5239, device='cuda:0')"
+69,5,6,Stein_grad,tensor(2.5856)
+70,5,10,NCV,tensor(3.3206)
+71,5,10,Stein,tensor(1.8613)
+72,5,10,CF,tensor(0.7277)
+73,5,10,MCOnMesh,"tensor(3.5239, device='cuda:0')"
+74,5,10,Stein_grad,tensor(3.0696)
+75,7,23,NCV,tensor(4.9017)
+76,7,23,Stein,tensor(0.0060)
+77,7,23,CF,tensor(11.8900)
+78,7,23,MCOnMesh,"tensor(0.3425, device='cuda:0')"
+79,7,23,Stein_grad,tensor(3.0451)
+80,7,2,NCV,tensor(4.5701)
+81,7,2,Stein,tensor(0.0510)
+82,7,2,CF,tensor(0.3602)
+83,7,2,MCOnMesh,"tensor(0.3425, device='cuda:0')"
+84,7,2,Stein_grad,tensor(2.4305)
+85,7,8,NCV,tensor(8.8267)
+86,7,8,Stein,tensor(0.1601)
+87,7,8,CF,tensor(0.0432)
+88,7,8,MCOnMesh,"tensor(0.3425, device='cuda:0')"
+89,7,8,Stein_grad,tensor(9.2793)
+90,7,6,NCV,tensor(0.9847)
+91,7,6,Stein,tensor(0.0506)
+92,7,6,CF,tensor(2.9423)
+93,7,6,MCOnMesh,"tensor(0.3425, device='cuda:0')"
+94,7,6,Stein_grad,tensor(0.6306)
+95,7,10,NCV,tensor(4.6423)
+96,7,10,Stein,tensor(0.3870)
+97,7,10,CF,tensor(2.5477)
+98,7,10,MCOnMesh,"tensor(0.3425, device='cuda:0')"
+99,7,10,Stein_grad,tensor(1.6913)

@@ -5,12 +5,12 @@ import numpy as np
 sns.set_style('whitegrid')
 
 HOME = "experiments/mean_MVN_results/"
-NAMES = {"Langevin": "LMC", "HMC": "HMC", "CF": "CF", "NCV": "NCV", "CF_on": "CF_on", 
-         "NCV_on": "NCV_on", "NSE_diff": "NSE (D)", "NSE_grad": "NSE (G)"}
+NAMES_AND_MARKERS = {"Langevin": ("LMC",'s'), "HMC": ("HMC",'^'), "CF": ("CF",'D'), "NCV": ("NCV",'P'), 
+         "NSE_diff": ("NSE (D)", '*'), "NSE_grad": ("NSE (G)",'v')}
 
 
 # Load the data
-df = pd.read_csv(HOME + 'merged_mMVN_results.csv')
+df = pd.read_csv(HOME + 'final_merged_mMVN_results.csv')
 
 # Calculate the means and standard deviations
 means = df.groupby(['used_mean']).mean().reset_index()
@@ -22,11 +22,11 @@ stds.to_csv(HOME + 'mMVN_stds.csv')
 
 # Plot the data
 plt.figure(figsize=(20, 10))
-markers = ['v', '*', 'D', 'P']
+
 # plot with confidence intervals
-for i, method in enumerate(['NSE_diff', 'NSE_grad', 'CF_on', 'NCV_on']):
-    sns.lineplot(data=means, x='used_mean', y=method, label=NAMES[method] if method.split('_')[-1] != 'on' else method.split('_')[0], 
-                marker=markers[i], markersize=10)
+for i, method in enumerate(['NSE_diff', 'NSE_grad', 'CF', 'NCV']):
+    n, m = NAMES_AND_MARKERS[method]
+    sns.lineplot(data=means, x='used_mean', y=method, label=n, marker=m, markersize=10)
     plt.fill_between(means['used_mean'], means[method] - stds[method], means[method] + stds[method], alpha=0.3)
 
 
@@ -43,7 +43,7 @@ plt.yticks(fontsize=16)
 plt.tick_params(axis='both', which='major', labelsize=18)
 plt.tick_params(axis='both', which='minor', labelsize=18)
 plt.legend(fontsize=16)
-plt.title(r'Estimated Value vs. samples mean for $\mathcal{N}(3, 5I_d)$', fontsize=24)
+plt.title(r'Estimated Value vs. samples mean for $\mathcal{N}(3, 5I_d)$', fontsize=20)
 plt.savefig(HOME + 'MVN_estimated_value_vs_mean.png')
 plt.show()
 

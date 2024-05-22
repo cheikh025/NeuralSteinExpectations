@@ -45,7 +45,7 @@ def get_parameters(experiment):
 
 def main(args):
     Data = {'dim': [], 'seed': [], 'true_val': [], 'NSE_diff': [], 
-            'NSE_grad': [], 'CF_on': [], 'NCV_on': [], 'Epochs': [], 'n_samples': [], 'used_mean': []}
+            'NSE_grad': [], 'CF': [], 'NCV': [], 'Epochs': [], 'n_samples': [], 'used_mean': []}
     dim, seed, epochs, n_samples = get_parameters(args.experiment - 1)
     print(f"dim: {dim}, seed: {seed}, True Val: {dim*(MEAN**2 + STD**2)}")
     torch.manual_seed(seed)
@@ -57,15 +57,15 @@ def main(args):
         
         NSE_grad = evaluate_stein_expectation(dist, dim, None, n_samples, h = h, 
                                                     given_sample=samples, epochs=epochs, loss_type = "grad")
-        print(f"\t Stein est grad: {NSE_grad}")
+        print(f"\t NSE est grad: {NSE_grad}")
         NSE_diff = evaluate_stein_expectation(dist, dim, None,  n_samples, 
                                                 given_sample=samples, h = h, epochs=epochs, loss_type = "diff")
-        print(f"\t Stein est diff: {NSE_diff}")
+        print(f"\t NSE est diff: {NSE_diff}")
         cf_on_est = evaluate_cf_expectation(dist = dist, sample_range=None,
                                 n_samples= n_samples, h = h,
                                 reg=0., given_sample = samples)
         print(f"\t CF on-samples est: {cf_on_est}")
-        ncv_on_est = evaluate_ncv_expectation(dist, dim, sample_range=None, n_samples=n_samples, h=h, 
+        ncv_on_est = evaluate_varg_expectation(dist, dim, sample_range=None, n_samples=n_samples, h=h, 
                                         epochs=epochs, reg = 0., given_sample = samples)
         print(f"\t NCV on-samples est: {ncv_on_est}")
 
@@ -75,8 +75,8 @@ def main(args):
         Data['true_val'].append(dim*(MEAN**2 + STD**2))
         Data['NSE_diff'].append(NSE_diff)
         Data['NSE_grad'].append(NSE_grad)
-        Data['CF_on'].append(cf_on_est)
-        Data['NCV_on'].append(ncv_on_est)
+        Data['CF'].append(cf_on_est)
+        Data['NCV'].append(ncv_on_est)
         Data['Epochs'].append(epochs)
         Data['n_samples'].append(n_samples)
         Data['used_mean'].append(mean)

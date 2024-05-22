@@ -1,7 +1,5 @@
 import torch
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 import sys
 import os
 import argparse
@@ -46,41 +44,46 @@ def get_parameters(experiment):
 def main(args):
     Data = {'dim': [], 'seed': [], 'true_val': [], 'NSE_diff': [], 
             'NSE_grad': [], 'Langevin': [], 'HMC': [],
-            'CF': [], 'CF_on': [], 'NCV': [], 'NCV_on': []}
+            'CF': [], 'NCV': []}
     dim, seed, epochs, n_samples = get_parameters(args.experiment - 1)
     print(f"dim: {dim}, seed: {seed}, True Val: {dim*(MEAN**2 + STD**2)}")
     torch.manual_seed(seed)
     dist = MultivariateNormalDistribution(mean=MEAN*torch.ones(dim).to(device), 
                                         covariance=(STD**2)*torch.eye(dim).to(device))
-    true_samples = MEAN + STD*torch.randn(n_samples, dim).to(device)
+    # true_samples = MEAN + STD*torch.randn(n_samples, dim).to(device)
     LMC_est = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
                             num_chains=100, device=device)
     print(f"\t Langevin est: {LMC_est.item()}")
     HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
                     num_chains=100, device=device)
     print(f"\t HMC est: {HMC_est}")
-    NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, 
-                                                epochs=epochs, loss_type = "grad")
-    print(f"\t Stein est grad: {NSE_grad}")
-    NSE_diff = evaluate_stein_expectation(dist, dim, sample_range,
-                                                n_samples, h = h, epochs=epochs, loss_type = "diff")
-    print(f"\t Stein est diff: {NSE_diff}")
+    NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, mb_size=1024,
+                                                epochs=epochs, loss_type = "grad", resample_=True)
+    print(f"\t NSE est grad: {NSE_grad}")
+    NSE_diff = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, mb_size=1024,
+                                        epochs=epochs, loss_type = "diff", resample_=True)
+    print(f"\t NSE est diff: {NSE_diff}")
     cf_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
                             n_samples= n_samples, h = h,
                             reg=0., given_sample = None)
     print(f"\t CF off-samples est: {cf_est}")
-    cf_on_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
-                            n_samples= n_samples, h = h,
-                            reg=0., given_sample = true_samples)
-    print(f"\t CF on-samples est: {cf_on_est}")
-    ncv_est = evaluate_ncv_expectation(dist, dim, sample_range, n_samples, h, 
-                                    epochs=epochs, reg = 0.)
-    print(f"\t NCV off-samples est: {ncv_est}")
-    ncv_on_est = evaluate_ncv_expectation(dist, dim, sample_range, n_samples, h, 
-                                    epochs=epochs, reg = 0., given_sample = true_samples)
-    print(f"\t NCV on-samples est: {ncv_on_est}")
+    # cf_on_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
+    #                         n_samples= n_samples, h = h,
+    #                         reg=0., given_sample = true_samples)
+    # print(f"\t CF on-samples est: {cf_on_est}")
+    # ncv_est = evaluate_ncv_expectation(dist, dim, sample_range, n_samples, h, 
+    #                                 epochs=epochs, reg = 0., resample_=True)
+    # print(f"\t NCV off-samples est: {ncv_est}")
+    # ncv_on_est = evaluate_ncv_expectation(dist, dim, sample_range, n_samples, h, 
+    #                                 epochs=epochs, reg = 0., given_sample = true_samples)
+    # print(f"\t NCV on-samples est: {ncv_on_est}")
 
-    print(f"\t Stein est diff: {NSE_diff}")
+    ncv_varg_est = evaluate_varg_expectation(dist, dim, sample_range, n_samples, h, mb_size=1024,
+                                             epochs=epochs, reg = 0., resample_=True)
+    print(f"\t NCV varg est: {ncv_varg_est}")
+    # ncv_varg_on_est = evaluate_varg_expectation(dist, dim, sample_range, n_samples, h,
+    #                                          epochs=epochs, reg = 0., given_sample = true_samples)
+    # print(f"\t NCV varg on-samples est: {ncv_varg_on_est}")
     Data['dim'].append(dim)
     Data['seed'].append(seed)
     Data['true_val'].append(dim*(MEAN**2 + STD**2))
@@ -89,9 +92,9 @@ def main(args):
     Data['NSE_diff'].append(NSE_diff)
     Data['NSE_grad'].append(NSE_grad)
     Data['CF'].append(cf_est)
-    Data['CF_on'].append(cf_on_est)
-    Data['NCV'].append(ncv_est)
-    Data['NCV_on'].append(ncv_on_est)
+    #Data['CF_on'].append(cf_on_est)
+    Data['NCV'].append(ncv_varg_est)
+    #Data['NCV_on'].append(ncv_on_est)
     df = pd.DataFrame(Data)
     print(Data)
     df.to_csv(HOME + f"MVN_exp_{args.experiment}.csv")

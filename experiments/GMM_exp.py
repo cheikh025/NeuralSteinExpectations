@@ -58,18 +58,18 @@ def main(args):
     HMC_est = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
                     num_chains=100, device=device)
     print(f"\t HMC est: {HMC_est}")
-    NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, 
-                                                mb_size=512, epochs=epochs, loss_type = "grad")
-    print(f"\t Stein est grad: {NSE_grad}")
-    NSE_diff = evaluate_stein_expectation(dist, dim, sample_range, n_samples, mb_size=512,
-                                                h = h, epochs=epochs, loss_type = "diff")
-    print(f"\t Stein est diff: {NSE_diff}")
+    NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, mb_size=1024, 
+                                        epochs=epochs, loss_type = "grad", resample_=True)
+    print(f"\t NSE est grad: {NSE_grad}")
+    NSE_diff = evaluate_stein_expectation(dist, dim, sample_range, n_samples, mb_size=1024,
+                                        h = h, epochs=epochs, loss_type = "diff", resample_=True)
+    print(f"\t NSE est diff: {NSE_diff}")
     cf_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
                             n_samples= n_samples, h = h,
                             reg=0., given_sample = None)
     print(f"\t CF off-samples est: {cf_est}")
-    ncv_est = evaluate_ncv_expectation(dist, dim, sample_range, n_samples, h, mb_size=512,
-                                    epochs=epochs, reg = 0.)
+    ncv_est = evaluate_varg_expectation(dist, dim, sample_range, n_samples, h, mb_size=1024,
+                                             epochs=epochs, reg = 0., resample_=True)
     print(f"\t NCV off-samples est: {ncv_est}")
 
     Data['dim'].append(dim)
