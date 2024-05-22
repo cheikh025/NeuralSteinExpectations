@@ -305,9 +305,9 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
     net = net.to(device)
     
     if loss_type == "grad":
-        optimizer = torch.optim.Adam(net.parameters(), lr=1e-2)
+        optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
     else:
-        optimizer = torch.optim.Adam(net.parameters(), lr=1e-2)
+        optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
 
     if given_sample is None:
         #   Generate and prepare sample data
