@@ -211,14 +211,18 @@ class MultivariateNormalDistribution(Distribution):
     def __init__(self, mean, covariance):
         self.mean = mean
         self.covariance = covariance
-        self.inv_covariance = torch.inverse(covariance)
-        self.det_covariance = torch.det(covariance)
+        #self.inv_covariance = torch.inverse(covariance)
+        #self.det_covariance = torch.det(covariance)
         self.dim = mean.size(0)  
-
+        self.torch_dist = torch.distributions.MultivariateNormal(loc = mean, covariance_matrix = covariance)
     def log_prob(self, x):
-        d = x - self.mean
-        return -0.5 * torch.sum((d @ self.inv_covariance) * d, dim=1) 
+        return self.torch_dist.log_prob(x)
+        #d = x - self.mean
+        #return -0.5 * torch.sum((d @ self.inv_covariance) * d, dim=1) 
     
+    def sample(self, n):
+        return self.torch_dist.sample(n)
+
     def generate_points(self, n_samples, sample_range=(-5, 5)):
    
          return torch.rand(n_samples, self.dim) * (sample_range[1] - sample_range[0]) + sample_range[0]
