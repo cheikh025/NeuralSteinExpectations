@@ -20,9 +20,9 @@ from LangevinSampler import *
 
 HOME = "./var_time_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-DIMS = [10] #[1,2,3,5,10,20,30]
+DIMS = [5] #[1,2,3,5,10,20,30]
 SEED = [7]#,13,23,42,169]
-sample_range = (-6,6)
+sample_range = (-4,6)
 EPOCHS = [1000*int(dim/10 + 1) for dim in DIMS]
 N_SAMPLES = [300 for dim in DIMS]
 
@@ -55,28 +55,45 @@ def main(args):
                             pi=torch.tensor([0.5, 0.5]).to(device)
                             )
 
-    beh_dist = MultivariateNormalDistribution(mean = 1+torch.zeros(dim).to(device),
-                                            covariance=10*torch.eye(dim).to(device))
-    given_samples = beh_dist.sample((n_samples,))
+    #beh_dist = MultivariateNormalDistribution(mean = 1+torch.zeros(dim).to(device),
+    #                                        covariance=10*torch.eye(dim).to(device))
+    given_samples =  given_samples = sample_range[0]+(sample_range[1] - sample_range[0])*torch.rand(n_samples, dim) #beh_dist.sample((n_samples,))
+     #beh_dist.sample((n_samples,))
     
     
     lmc_samples, lmc_sample_means, lmc_sample_vars, lmc_iter_times = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
-                            num_chains=100, var_time =True, device=device)
+                            num_chains=100, var_time =True, init_samples = given_samples[:100, :], device=device)
     print(f"\t Langevin est: {lmc_sample_means[-1].item()}")
     LMC_est = lmc_sample_means[-1].item()
 
+    if dim >= 2:
+        plt.figure()
+        plt.scatter(lmc_samples.reshape(-1, dim)[:,0], lmc_samples.reshape(-1, dim)[:,1], label="lmc samples")
+        plt.xlabel('x1')
+        plt.ylabel('x2')
+        plt.title("Scatter plot of LMC samples, Marginal along x1, x2")
+        plt.savefig(HOME+'LMC_samples_2d.png')    
+
     hmc_samples, hmc_sample_means, hmc_sample_vars, hmc_iter_times = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
-                    num_chains=100,  var_time = True, device=device)
+                    num_chains=100,  var_time = True, init_samples = given_samples[:100, :], device=device)
     print(f"\t HMC est: {hmc_sample_means[-1].item()}")
     HMC_est = hmc_sample_means[-1].item()
-
+    
+    if dim >= 2:
+        plt.figure()
+        plt.scatter(lmc_samples.reshape(-1, dim)[:,0], lmc_samples.reshape(-1, dim)[:,1], label="lmc samples")
+        plt.scatter(hmc_samples.reshape(-1, dim)[:,0], hmc_samples.reshape(-1, dim)[:,1], label="hmc samples")
+        plt.xlabel('x1')
+        plt.ylabel('x2')
+        plt.title("Scatter plot of MCMC samples, Marginal along x1, x2")
+        plt.savefig(HOME+'LMC_HMC_samples_2d.png') 
     
     NSE_grad, nseg_iter_times, nseg_est_iter = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, mb_size=1024, 
-                                        epochs=epochs, loss_type = "grad", resample_=False, given_sample=given_samples, var_time=True)
+                                        epochs=epochs, loss_type = "grad", resample_=True, given_sample=None, var_time=True)
     print(f"\t NSE est grad: {NSE_grad}")
     
     NSE_diff, nsed_iter_times, nsed_est_iter = evaluate_stein_expectation(dist, dim, sample_range, n_samples, mb_size=1024,
-                                        h = h, epochs=epochs, loss_type = "diff", resample_=False, given_sample = given_samples, var_time=True)
+                                        h = h, epochs=epochs, loss_type = "diff", resample_=True, given_sample = None, var_time=True)
     print(f"\t NSE est diff: {NSE_diff}")
     
     #cf_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,

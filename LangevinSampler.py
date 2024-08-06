@@ -144,8 +144,7 @@ class LangevinSampler:
         else:
             step_fn = self.step
 
-        self.sample_vars = []
-        self.sample_means = []
+        self.sample_traj = []
 
         if timing:
             start = time.process_time()
@@ -155,19 +154,19 @@ class LangevinSampler:
         for i in range(self.burn_in):
             step_fn()
 
-            #self.sample_traj.append(self.x.detach().cpu().numpy())
+            self.sample_traj.append(self.x.detach().cpu().numpy())
 
-            #if timing:
-            #    cur_time = time.process_time()
-            #    t_delta = cur_time - start
-            #    iter_times.append(t_delta)
+            if timing:
+                cur_time = time.process_time()
+                t_delta = cur_time - start
+                iter_times.append(t_delta)
             
         # for each sample, run the step, and add the samples to list    
         for i in range(self.num_samples):
             step_fn()
             
             self.sample_list.append(self.x.detach().cpu().numpy())
-            
+            #self.sample_traj.append(self.x.detach().cpu().numpy())
 
             if timing:
                 cur_time = time.process_time()
@@ -175,7 +174,7 @@ class LangevinSampler:
                 iter_times.append(t_delta)
         
         self.sample_list_np = np.array(self.sample_list)
-        #self.sample_traj_np = np.array(self.sample_traj)
+        self.sample_traj_np = np.array(self.sample_traj)
 
         if timing:
             """
@@ -189,7 +188,7 @@ class LangevinSampler:
             return self.sample_list_np, self.sample_means, self.sample_vars, iter_times
             """
             print("sample list shape: ", self.sample_list_np.shape)
-            return self.sample_list_np, iter_times
+            return self.sample_list_np, self.sample_traj_np, iter_times
         return self.sample_list_np
 
     # evaluate expectation along each chain 
@@ -204,9 +203,12 @@ class LangevinSampler:
         return np.mean(h(self.sample_list_np), axis=0)
     
 # to evaluate the expectation of a function h(x) under a distribution dist
-def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False, var_time = False, device='cpu'):
+def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False, var_time = False, init_samples = None, device='cpu'):
     # to make the initial distribution different from the true distribution
-    init_samples = 1 + 10*torch.randn(num_chains, dim).to(device)
+    if init_samples is None:
+       init_samples = 1 + 10*torch.randn(num_chains, dim).to(device)
+    else:
+        init_samples = init_samples.to(device)
 
     lsampler = LangevinSampler(log_prob=dist.log_prob, 
                 num_chains =num_chains, 
@@ -220,11 +222,19 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma
     if var_time == False:
         samples = lsampler.sample()
     else:
-        samples, iter_times = lsampler.sample(timing=True)
+        samples, sample_traj, iter_times = lsampler.sample(timing=True)
 
         sample_vars = []
         sample_means = []
 
+        # samples during burn-in
+        for i in range(sample_traj.shape[0]):
+            # var up to ith sample
+            sample_vars.append(np.var(h(sample_traj[:i+1, :, :].reshape(-1, dim))))
+
+            # mean up to ith sample
+            sample_means.append(np.mean(h(sample_traj[:i+1, :, :].reshape(-1, dim))))
+            
         for i in range(samples.shape[0]):
             # var up to ith sample
             sample_vars.append(np.var(h(samples[:i+1, :, :].reshape(-1, dim))))
@@ -242,12 +252,15 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma
     return (h(samples)).mean()
 
 def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_steps = 5, verbose= False, return_samples=False,
-             var_time = False, device='cpu'):
+             var_time = False, init_samples = None, device='cpu'):
     # good params for Gaussian are: alpha=  5e-2, num_L_steps=5
     # for mixture try: 
     
     # to make the initial distribution different from the true distribution
-    init_samples = 1 + 10*torch.randn(num_chains, dim).to(device)
+    if init_samples is None:
+       init_samples = 1 + 10*torch.randn(num_chains, dim).to(device)
+    else:
+        init_samples = init_samples.to(device)
 
     lsampler = LangevinSampler(log_prob=dist.log_prob, num_chains =num_chains, 
                 num_samples = num_samples, burn_in= 5000, init_samples=init_samples, 
@@ -259,10 +272,19 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_st
     if var_time == False:
         samples = lsampler.sample(sampler_type="hmc")
     else:
-        samples, iter_times = lsampler.sample(sampler_type="hmc", timing=True)
+        samples, sample_traj, iter_times = lsampler.sample(sampler_type="hmc", timing=True)
         
         sample_vars = []
         sample_means = []
+    
+        # samples during burn-in
+        for i in range(sample_traj.shape[0]):
+            # var up to ith sample
+            sample_vars.append(np.var(h(sample_traj[:i+1, :, :].reshape(-1, dim))))
+
+            # mean up to ith sample
+            sample_means.append(np.mean(h(sample_traj[:i+1, :, :].reshape(-1, dim))))
+            
 
         for i in range(samples.shape[0]):
             # var up to ith sample
