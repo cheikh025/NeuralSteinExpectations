@@ -204,6 +204,7 @@ class LangevinSampler:
     
 # to evaluate the expectation of a function h(x) under a distribution dist
 def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False, var_time = False, init_samples = None, device='cpu'):
+def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False, var_time = False, init_samples = None, device='cpu'):
     # to make the initial distribution different from the true distribution
     if init_samples is None:
        init_samples = 1 + 10*torch.randn(num_chains, dim).to(device)
@@ -252,6 +253,7 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma
     return (h(samples)).mean()
 
 def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_steps = 5, verbose= False, return_samples=False,
+             var_time = False, init_samples = None, device='cpu'):
              var_time = False, init_samples = None, device='cpu'):
     # good params for Gaussian are: alpha=  5e-2, num_L_steps=5
     # for mixture try: 
