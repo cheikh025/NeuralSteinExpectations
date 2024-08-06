@@ -103,7 +103,7 @@ class LangevinSampler:
         p = torch.randn_like(self.x)
 
 
-        x_cur = torch.clone(self.x)
+        x_cur = torch.clone(self.x).to(device)
 
         # Compute initial Hamiltonian
         log_prob_val = self.log_prob(x_cur)
