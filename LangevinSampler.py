@@ -4,6 +4,7 @@ from torch import cdist
 import torch.distributions as tdist
 import matplotlib.pyplot as plt
 from distributions import Mixture
+import time
 
 device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
 
@@ -132,7 +133,7 @@ class LangevinSampler:
             x_next = x_next.detach()
             self.x[accept_bools] = x_next[accept_bools]
 
-    def sample(self, sampler_type = "ula"):
+    def sample(self, sampler_type = "ula", timing=False):
         # sampler type
         if sampler_type == "ula":
             step_fn = self.step 
@@ -143,16 +144,51 @@ class LangevinSampler:
         else:
             step_fn = self.step
 
+        self.sample_vars = []
+        self.sample_means = []
+
+        if timing:
+            start = time.process_time()
+            iter_times = []
+
         # run the burn in
         for i in range(self.burn_in):
             step_fn()
+
+            #self.sample_traj.append(self.x.detach().cpu().numpy())
+
+            #if timing:
+            #    cur_time = time.process_time()
+            #    t_delta = cur_time - start
+            #    iter_times.append(t_delta)
             
         # for each sample, run the step, and add the samples to list    
         for i in range(self.num_samples):
             step_fn()
             
             self.sample_list.append(self.x.detach().cpu().numpy())
+            
+
+            if timing:
+                cur_time = time.process_time()
+                t_delta = cur_time - start
+                iter_times.append(t_delta)
+        
         self.sample_list_np = np.array(self.sample_list)
+        #self.sample_traj_np = np.array(self.sample_traj)
+
+        if timing:
+            """
+            for i in range(self.sample_list_np.shape[0]):
+                # var up to ith sample
+                self.sample_vars.append(np.var(self.h(self.sample_list_np[:i+1]), axis=0))
+
+                # mean up to ith sample
+                self.sample_means.append(np.mean(self.h(self.sample_list_np[:i+1]), axis=0))
+            
+            return self.sample_list_np, self.sample_means, self.sample_vars, iter_times
+            """
+            return self.sample_list_np, iter_times
         return self.sample_list_np
 
     # evaluate expectation along each chain 
@@ -167,7 +203,7 @@ class LangevinSampler:
         return np.mean(h(self.sample_list_np), axis=0)
     
 # to evaluate the expectation of a function h(x) under a distribution dist
-def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False, device='cpu'):
+def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma = 0.2, verbose=False, return_samples = False, var_time = False, device='cpu'):
     # to make the initial distribution different from the true distribution
     init_samples = 1 + 10*torch.randn(num_chains, dim).to(device)
 
@@ -180,7 +216,22 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma
                 device=device)
 
     # shape of samples: (num_samples, num_chains, dim), np array
-    samples = lsampler.sample()
+    if var_time == False:
+        samples = lsampler.sample()
+    else:
+        samples, iter_times = lsampler.sample(timing=True)
+
+        sample_vars = []
+        sample_means = []
+
+        for i in range(samples.shape[0]):
+            # var up to ith sample
+            sample_vars.append(np.var(h(samples[:i+1])))
+
+            # mean up to ith sample
+            sample_means.append(np.mean(h(samples[:i+1])))
+            
+        return samples, sample_means, sample_vars, iter_times
 
     #print("Expectation from each chain: ", lsampler.eval_expectation(h))
     if verbose:
@@ -190,7 +241,7 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma
     return (h(samples)).mean()
 
 def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_steps = 5, verbose= False, return_samples=False,
-             device='cpu'):
+             var_time = False, device='cpu'):
     # good params for Gaussian are: alpha=  5e-2, num_L_steps=5
     # for mixture try: 
     
@@ -204,7 +255,22 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_st
                 device=device)
 
     # shape of samples: (num_samples, num_chains, dim), np array
-    samples = lsampler.sample(sampler_type="hmc")
+    if var_time == False:
+        samples = lsampler.sample(sampler_type="hmc")
+    else:
+        samples, iter_times = lsampler.sample(sampler_type="hmc", timing=True)
+        
+        sample_vars = []
+        sample_means = []
+
+        for i in range(samples.shape[0]):
+            # var up to ith sample
+            sample_vars.append(np.var(h(samples[:i+1])))
+
+            # mean up to ith sample
+            sample_means.append(np.mean(h(samples[:i+1])))
+            
+        return samples, sample_means, sample_vars, iter_times
     
     #print("Expectation from each chain: ", lsampler.eval_expectation(h))
     if verbose:
