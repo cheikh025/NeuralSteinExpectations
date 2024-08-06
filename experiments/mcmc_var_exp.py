@@ -55,6 +55,11 @@ def main(args):
                             pi=torch.tensor([0.5, 0.5]).to(device)
                             )
 
+    beh_dist = MultivariateNormalDistribution(mean = 1+torch.zeros(dim).to(device),
+                                            covariance=10*torch.eye(dim).to(device))
+    given_samples = beh_dist.sample((n_samples,))
+    
+    
     lmc_samples, lmc_sample_means, lmc_sample_vars, lmc_iter_times = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
                             num_chains=100, var_time =True, device=device)
     print(f"\t Langevin est: {lmc_sample_means[-1].item()}")
@@ -65,6 +70,25 @@ def main(args):
     print(f"\t HMC est: {hmc_sample_means[-1].item()}")
     HMC_est = hmc_sample_means[-1].item()
 
+    
+    NSE_grad, nseg_iter_times, nseg_est_iter = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, mb_size=1024, 
+                                        epochs=epochs, loss_type = "grad", resample_=False, given_sample=given_samples, var_time=True)
+    print(f"\t NSE est grad: {NSE_grad}")
+    
+    NSE_diff, nsed_iter_times, nsed_est_iter = evaluate_stein_expectation(dist, dim, sample_range, n_samples, mb_size=1024,
+                                        h = h, epochs=epochs, loss_type = "diff", resample_=False, given_sample = given_samples, var_time=True)
+    print(f"\t NSE est diff: {NSE_diff}")
+    
+    #cf_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
+    #                        n_samples= n_samples, h = h,
+    #                        reg=0., given_sample = None)
+    #print(f"\t CF off-samples est: {cf_est}")
+    
+    #ncv_est = evaluate_varg_expectation(dist, dim, sample_range, n_samples, h, mb_size=1024,
+    #                                         epochs=epochs, reg = 0., resample_=True)
+    #print(f"\t NCV off-samples est: {ncv_est}")
+    
+    
     plt.figure()
     plt.plot(lmc_iter_times, lmc_sample_vars, label='Langevin')
     plt.plot(hmc_iter_times, hmc_sample_vars, label='HMC')
@@ -78,27 +102,16 @@ def main(args):
     plt.figure()
     plt.plot(lmc_iter_times, lmc_sample_means, label='Langevin')
     plt.plot(hmc_iter_times, hmc_sample_means, label='HMC')
+    plt.plot(nseg_iter_times, nseg_est_iter, label='NSE_grad')
+    plt.plot(nsed_iter_times, nsed_est_iter, label='NSE_diff')
+    plt.plot(hmc_iter_times, [0.0]*len(hmc_iter_times), label='True Value')
     plt.xlabel('Wall-clock time')
     plt.ylabel('Estimate')
     plt.legend()
     plt.title(f"dim={dim}, seed={seed} Estimate vs Wall-clock time")
     plt.savefig(HOME + f"est_time_exp_{args.experiment}.png")
 
-    """
-    NSE_grad = evaluate_stein_expectation(dist, dim, sample_range, n_samples, h = h, mb_size=1024, 
-                                        epochs=epochs, loss_type = "grad", resample_=True)
-    print(f"\t NSE est grad: {NSE_grad}")
-    NSE_diff = evaluate_stein_expectation(dist, dim, sample_range, n_samples, mb_size=1024,
-                                        h = h, epochs=epochs, loss_type = "diff", resample_=True)
-    print(f"\t NSE est diff: {NSE_diff}")
-    cf_est = evaluate_cf_expectation(dist = dist, sample_range=sample_range,
-                            n_samples= n_samples, h = h,
-                            reg=0., given_sample = None)
-    print(f"\t CF off-samples est: {cf_est}")
-    ncv_est = evaluate_varg_expectation(dist, dim, sample_range, n_samples, h, mb_size=1024,
-                                             epochs=epochs, reg = 0., resample_=True)
-    print(f"\t NCV off-samples est: {ncv_est}")
-    """
+
     Data['dim'].append(dim)
     Data['seed'].append(seed)
     Data['true_val'].append(0.0)

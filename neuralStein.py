@@ -4,6 +4,7 @@ from distributions import *
 from utils import * 
 from network import MLP, normalizedMLP
 from tqdm import tqdm
+import time 
 
 #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -34,7 +35,7 @@ def stein_g_precomputed_score(x, g, score_x):
     return stein_val_batches
 
 # mb_size = None means no minibatching/full batch 
-def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None, resample_=False, sample_range = None):
+def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None, resample_=False, sample_range = None, var_time=False):
 
     # precompute h(sample) and logp(sample)
     h_sample = h(sample)
@@ -52,6 +53,11 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
     else:
         print("**Minibatches with batch size: ", mb_size)
         batch_idx = torch.randperm(sample.size(0))
+
+    if var_time:
+        start = time.process_time()
+        iter_times = []
+        est_iter = []
 
     for e in tqdm(range(epochs), desc='Training '):
         epoch_loss = 0.
@@ -82,6 +88,16 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
             optimizer.step()
             
             epoch_loss += loss.item()/sample.size(0)
+        
+        if var_time:
+            cur_time = time.process_time()
+            delta_t = cur_time - start
+            iter_times.append(delta_t)
+
+            # CURRENT estimate
+            cur_est = h_sample_mb.detach() - stein_val.detach()
+            est_iter.append(cur_est.mean().item())
+
         if resample_:
             sample = target_dist.generate_points(sample.size(0), sample_range).to(device).requires_grad_(True)
             h_sample = h(sample)
@@ -90,6 +106,10 @@ def train_network_grad_loss(net, optimizer, sample, target_dist, h, epochs, verb
         if verbose:
             if e % 100 == 0:  
                 print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
+    
+    if var_time:
+        return net, iter_times, est_iter
+    
     return net
 
 
@@ -151,7 +171,7 @@ def train_network_grad_loss_precomputed_score(net, optimizer, sample, given_scor
 
 # mb_size = None means no minibatching/full batch 
 def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verbose=True, mb_size = None, 
-                            resample_ = False, sample_range = None):
+                            resample_ = False, sample_range = None, var_time=False):
     device = sample.device
 
     #perturbed samples
@@ -176,6 +196,11 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
     else:
         print("**Minibatches with batch size: ", mb_size)
         batch_idx = torch.randperm(sample.size(0))
+
+    if var_time:
+        start = time.process_time()
+        iter_times = []
+        est_iter = []
 
     for e in tqdm(range(epochs), desc='Training '):
         epoch_loss = 0.
@@ -211,6 +236,15 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
 
             epoch_loss += loss.item()/sample.size(0)
 
+        if var_time:
+            cur_time = time.process_time()
+            delta_t = cur_time - start
+            iter_times.append(delta_t)
+
+            # CURRENT estimate
+            cur_est = h_sample_mb.detach() - stein_val.detach()
+            est_iter.append(cur_est.mean().item())
+
         if resample_ : 
             sample = target_dist.generate_points(sample.size(0), sample_range).to(device).requires_grad_(True)
             sample_bar = sample + (torch.randn_like(sample)).to(device)
@@ -224,6 +258,8 @@ def train_network_diff_loss(net, optimizer, sample, target_dist, h, epochs, verb
         if verbose:
             if e % 100 == 0:  
                 print(f'Epoch [{e}/{epochs}], Loss: {epoch_loss}')
+    if var_time:
+        return net, iter_times, est_iter
     return net
 
 
@@ -294,7 +330,7 @@ def train_network_diff_loss_no_perturb(net, optimizer, sample, target_score, h, 
 
 
 #loss type is either 'grad' or 'diff'
-def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, given_score = None, network="MLP", return_learned = False, mb_size = None, resample_ = False):
+def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epochs=1000, loss_type = "grad", given_sample = None, given_score = None, network="MLP", return_learned = False, mb_size = None, resample_ = False, var_time = False):
     # Initialize distribution and MLP network
     if network == 'NormalizedMLP':
         net = normalizedMLP(n_dims=net_dims, n_out=net_dims)
@@ -322,13 +358,19 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
     # Train the network and estimate the moment
     if loss_type == "grad":
         if given_score is None:
-            trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size, resample_ = resample_, sample_range=sample_range)
+            if var_time:
+                trained_net, iter_times, est_iter = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size, resample_ = resample_, sample_range=sample_range, var_time = var_time)
+            else:
+                trained_net = train_network_grad_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size, resample_ = resample_, sample_range=sample_range, var_time = var_time)
         else: 
             trained_net = train_network_grad_loss_precomputed_score(net, optimizer, sample, given_score, dist, h, epochs, verbose=True, mb_size = mb_size)
     elif loss_type == "diff":
         if given_score is None:
-            trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, 
-                                                mb_size = mb_size, resample_ = resample_, sample_range=sample_range)
+            if var_time:
+                trained_net, iter_times, est_iter = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, mb_size = mb_size, resample_ = resample_, sample_range=sample_range, var_time = var_time)
+            else:
+                trained_net = train_network_diff_loss(net, optimizer, sample, dist, h, epochs, verbose=True, 
+                                                mb_size = mb_size, resample_ = resample_, sample_range=sample_range, var_time=var_time)
         else:
             trained_net = train_network_diff_loss_no_perturb(net, optimizer, sample, given_score, h, epochs, verbose=True, mb_size = mb_size)
 
@@ -342,4 +384,7 @@ def evaluate_stein_expectation(dist, net_dims, sample_range, n_samples, h, epoch
 
     if return_learned:
         return est_moment.mean().item(), trained_net 
+    
+    if var_time:
+        return est_moment.mean().item(), iter_times, est_iter
     return est_moment.mean().item() #-abs(est_moment.mean().item() - dist.second_moment())

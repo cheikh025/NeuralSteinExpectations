@@ -188,6 +188,7 @@ class LangevinSampler:
             
             return self.sample_list_np, self.sample_means, self.sample_vars, iter_times
             """
+            print("sample list shape: ", self.sample_list_np.shape)
             return self.sample_list_np, iter_times
         return self.sample_list_np
 
@@ -226,10 +227,10 @@ def eval_Langevin(dist, dim, h, num_samples=100, num_chains=1, alpha = 1., gamma
 
         for i in range(samples.shape[0]):
             # var up to ith sample
-            sample_vars.append(np.var(h(samples[:i+1])))
+            sample_vars.append(np.var(h(samples[:i+1, :, :].reshape(-1, dim))))
 
             # mean up to ith sample
-            sample_means.append(np.mean(h(samples[:i+1])))
+            sample_means.append(np.mean(h(samples[:i+1, :, :].reshape(-1, dim))))
             
         return samples, sample_means, sample_vars, iter_times
 
@@ -265,10 +266,10 @@ def eval_HMC(dist, dim, h, num_samples=100, num_chains=1, alpha = 5e-2, num_L_st
 
         for i in range(samples.shape[0]):
             # var up to ith sample
-            sample_vars.append(np.var(h(samples[:i+1])))
+            sample_vars.append(np.var(h(samples[:i+1, :, :].reshape(-1, dim))))
 
             # mean up to ith sample
-            sample_means.append(np.mean(h(samples[:i+1])))
+            sample_means.append(np.mean(h(samples[:i+1, :, :].reshape(-1, dim))))
             
         return samples, sample_means, sample_vars, iter_times
     
