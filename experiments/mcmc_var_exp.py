@@ -22,7 +22,7 @@ HOME = "./var_time_results/"
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 DIMS = [10] #[1,2,3,5,10,20,30]
 SEED = [7]#,13,23,42,169]
-sample_range = (-6,6)
+sample_range = (-4,6)
 EPOCHS = [1000*int(dim/10 + 1) for dim in DIMS]
 N_SAMPLES = [300 for dim in DIMS]
 
@@ -55,18 +55,18 @@ def main(args):
                             pi=torch.tensor([0.5, 0.5]).to(device)
                             )
 
-    beh_dist = MultivariateNormalDistribution(mean = 1+torch.zeros(dim).to(device),
-                                            covariance=10*torch.eye(dim).to(device))
-    given_samples = beh_dist.sample((n_samples,))
+    #beh_dist = MultivariateNormalDistribution(mean = torch.zeros(dim).to(device),
+    #                                        covariance=torch.eye(dim).to(device))
+    given_samples = sample_range[0]+(sample_range[1] - sample_range[0])*torch.rand(n_samples, dim) #beh_dist.sample((n_samples,))
     
     
     lmc_samples, lmc_sample_means, lmc_sample_vars, lmc_iter_times = eval_Langevin(dist, dim=dim, h=h, num_samples=n_samples, 
-                            num_chains=100, var_time =True, device=device)
+                            num_chains=100, var_time =True, init_samples = given_samples, device=device)
     print(f"\t Langevin est: {lmc_sample_means[-1].item()}")
     LMC_est = lmc_sample_means[-1].item()
 
     hmc_samples, hmc_sample_means, hmc_sample_vars, hmc_iter_times = eval_HMC(dist, dim=dim, h=h, num_samples=n_samples, 
-                    num_chains=100,  var_time = True, device=device)
+                    num_chains=100,  var_time = True, init_samples = given_samples, device=device)
     print(f"\t HMC est: {hmc_sample_means[-1].item()}")
     HMC_est = hmc_sample_means[-1].item()
 
